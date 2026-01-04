@@ -16,18 +16,22 @@
  * HOẶC: Bạn có thể tạo 1 Tab tên là "CONFIG" trong Google Sheets để lưu cấu hình.
  */
 const GLOBAL_CONFIG = {
-    // 1. Vị trí dữ liệu (Mặc định cho file CSV mẫu 2025)
+    // 1. Vị trí dữ liệu
     START_ROW: 2,              // Hàng bắt đầu có dữ liệu (Hàng 1 là Header)
     COL_EMAIL: "F",            // Cột Email
     COL_NAME: "B",             // Cột Tên
 
-    // 2. Thông tin Công ty (Anonimized)
+    // 2. Tên các Sheet quan trọng
+    SHEET_NAME_PREFIX: "T",    // Tiền tố tên sheet tháng (Vd: T5)
+    TEMPLATE_SHEET_NAME: "TEMPLATE", // Tên sheet chứa mẫu phiếu lương
+
+    // 3. Thông tin Công ty (Sẽ dùng làm tag {{SENDER_NAME}}, {{SENDER_ADDRESS}}...)
     SENDER_NAME: "SME SOLUTIONS JOINT STOCK COMPANY",
     SENDER_ADDRESS: "Tòa nhà Alpha, số 123 Đường Beta, Quận Gamma, Hà Nội",
     SENDER_HOTLINE: "1900 xxxx",
     CONTACT_EMAIL: "hr@sme-solutions.vn",
 
-    // 3. Mapping cột cho template 2025 (Cột A=1, B=2...)
+    // 4. Mapping cột (Sẽ dùng làm tag {{HOTEN}}, {{VITRI}}...)
     MAP: {
         SOTT: "A", HOTEN: "B", VITRI: "C", NGAYGUI: "D", STK: "E", EMAIL: "F", NGANHANG: "G",
         NGAYCONGCHUAN: "H", TONGGIOTT: "I", GIO150: "J", GIO200: "K", GIO300: "L",
@@ -39,14 +43,13 @@ const GLOBAL_CONFIG = {
         THUCLINH: "AJ", PHAT: "AK", TAMUNG: "AL", DANHAN: "AM", LUONGCK: "AN"
     },
 
-    // 4. Tiêu đề và File
+    // 5. Cấu hình Email
     EMAIL_SUBJECT_PREFIX: "Phiếu Lương",
-    SHEET_NAME_PREFIX: "T",
     PDF_FILE_NAME_PREFIX: "PhieuLuong_2025"
 };
 
 /**
- * Hàm chính để gửi Email bảng lương.
+ * Hàm chính để gửi Email bảng lương sử dụng Template Sheet.
  */
 function sendMonthlyPayrollEmails_WithPDF() {
     const settings = getSettings();
@@ -58,40 +61,45 @@ function sendMonthlyPayrollEmails_WithPDF() {
 
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sourceSheet = ss.getSheetByName(sheetName);
+    const templateSheet = ss.getSheetByName(settings.TEMPLATE_SHEET_NAME);
 
     if (!sourceSheet) {
-        SpreadsheetApp.getUi().alert("Lỗi", `Không tìm thấy sheet "${sheetName}".`, SpreadsheetApp.getUi().ButtonSet.OK);
+        SpreadsheetApp.getUi().alert("Lỗi", `Không tìm thấy sheet dữ liệu "${sheetName}".`, SpreadsheetApp.getUi().ButtonSet.OK);
+        return;
+    }
+    if (!templateSheet) {
+        SpreadsheetApp.getUi().alert("Lỗi", `Không tìm thấy sheet mẫu "${settings.TEMPLATE_SHEET_NAME}". Bạn cần tạo một sheet tên là "${settings.TEMPLATE_SHEET_NAME}" và thiết kế mẫu phiếu lương tại đó.`, SpreadsheetApp.getUi().ButtonSet.OK);
         return;
     }
 
     const startRow = settings.START_ROW;
     const lastRow = sourceSheet.getLastRow();
     if (lastRow < startRow) {
-        SpreadsheetApp.getUi().alert("Thông báo", "Không có dữ liệu.");
+        SpreadsheetApp.getUi().alert("Thông báo", "Không có dữ liệu nhân viên.");
         return;
     }
 
-    // Lấy toàn bộ dữ liệu bảng lương
     const dataRange = sourceSheet.getDataRange();
     const values = dataRange.getValues();
-    const headers = values[0]; // Giả định hàng 1 là headers
 
     let emailsSentCount = 0;
     let emailsFailedCount = 0;
 
-    // Tạo helper function để lấy value theo tên cột (Letter)
     const getVal = (rowValues, colLetter) => {
         const idx = columnLetterToIndex(colLetter);
         return rowValues[idx];
     };
 
     const formatVND = (val) => {
-        if (!val || isNaN(parseFloat(val))) return "0";
+        if (val === null || val === undefined || val === "" || isNaN(parseFloat(val))) return "0";
         return new Intl.NumberFormat('vi-VN').format(parseFloat(val));
     };
 
-    let tempSpreadsheet = SpreadsheetApp.create(`Temp_Payroll_${new Date().getTime()}`);
-    let tempSheet = tempSpreadsheet.getSheets()[0];
+    // Tạo Spreadsheet tạm để xuất PDF
+    const tempSS = SpreadsheetApp.create(`Temp_Payroll_v2_${new Date().getTime()}`);
+    const defaultSheet = tempSS.getSheets()[0];
+    defaultSheet.setName("DUMMY");
+    defaultSheet.hideSheet();
 
     try {
         for (let i = startRow - 1; i < values.length; i++) {
@@ -102,83 +110,75 @@ function sendMonthlyPayrollEmails_WithPDF() {
             if (!recipientEmail || !String(recipientEmail).includes('@')) continue;
 
             try {
-                tempSheet.clear();
-                tempSheet.clearFormats();
-                tempSheet.setColumnWidth(1, 200);
-                tempSheet.setColumnWidth(2, 150);
-                tempSheet.setColumnWidth(3, 150);
+                // 1. Copy template sang Spreadsheet tạm
+                const currentTempSheet = templateSheet.copyTo(tempSS);
+                currentTempSheet.setName(employeeName.substring(0, 30)); // Giới hạn độ dài tên sheet
 
-                // --- VẼ PHIẾU LƯƠNG ---
-                // Header Công ty
-                tempSheet.getRange("A1:C1").merge().setValue(settings.SENDER_NAME).setFontWeight("bold").setFontSize(14).setHorizontalAlignment("center");
-                tempSheet.getRange("A2:C2").merge().setValue(settings.SENDER_ADDRESS).setFontSize(9).setHorizontalAlignment("center");
-                tempSheet.getRange("A3:C3").merge().setValue(`Hotline: ${settings.SENDER_HOTLINE} | Email: ${settings.CONTACT_EMAIL}`).setFontSize(9).setHorizontalAlignment("center");
+                // 2. Thay thế các thẻ TAG
+                const textFinder = currentTempSheet.createTextFinder("{{.*}}").useRegularExpression(true);
 
-                // Tiêu đề Phiếu Lương
-                tempSheet.getRange("A5:C5").merge().setValue(`PHIẾU LƯƠNG ${payrollMonthYear.toUpperCase()}`).setFontWeight("bold").setFontSize(16).setHorizontalAlignment("center").setBackground("#f3f3f3");
+                // Tạo một bản đồ thay thế (Key -> Value)
+                const replacements = {
+                    "{{THANGNAM}}": payrollMonthYear,
+                    "{{SENDER_NAME}}": settings.SENDER_NAME,
+                    "{{SENDER_ADDRESS}}": settings.SENDER_ADDRESS,
+                    "{{SENDER_HOTLINE}}": settings.SENDER_HOTLINE,
+                    "{{CONTACT_EMAIL}}": settings.CONTACT_EMAIL
+                };
 
-                // 1. THÔNG TIN NHÂN VIÊN
-                tempSheet.getRange("A7").setValue("THÔNG TIN NHÂN VIÊN").setFontWeight("bold").setBackground("#e9e9e9");
-                tempSheet.getRange("A8").setValue("Họ và tên:"); tempSheet.getRange("B8:C8").merge().setValue(employeeName).setFontWeight("bold");
-                tempSheet.getRange("A9").setValue("Vị trí:"); tempSheet.getRange("B9:C9").merge().setValue(getVal(row, settings.MAP.VITRI));
-                tempSheet.getRange("A10").setValue("Số tài khoản:"); tempSheet.getRange("B10:C10").merge().setValue(`${getVal(row, settings.MAP.STK)} (${getVal(row, settings.MAP.NGANHANG)})`);
+                // Thêm các tag từ MAP
+                for (const key in settings.MAP) {
+                    let val = getVal(row, settings.MAP[key]);
+                    // Nếu là các cột liên quan đến tiền bạc (bắt đầu bằng L_ hoặc PC_ hoặc các cột đặc biệt)
+                    if (key.startsWith("L_") || key.startsWith("PC_") ||
+                        ["THUONG", "TRU_CHIU_THUE", "TRU_KG_CHIU_THUE", "TONGLUONG", "BHXH", "THUETNCN", "THUCLINH", "PHAT", "TAMUNG", "DANHAN", "LUONGCK"].includes(key)) {
+                        val = formatVND(val);
+                    }
+                    replacements[`{{${key}}}`] = val;
+                }
 
-                // 2. CHI TIẾT CÔNG XÁ
-                tempSheet.getRange("A12").setValue("CHI TIẾT CÔNG XÁ").setFontWeight("bold").setBackground("#e9e9e9");
-                tempSheet.getRange("A13").setValue("Công chuẩn / Thực tế:"); tempSheet.getRange("B13").setValue(getVal(row, settings.MAP.NGAYCONGCHUAN)); tempSheet.getRange("C13").setValue(getVal(row, settings.MAP.TONGGIOTT) + " giờ");
-                tempSheet.getRange("A14").setValue("Tăng ca (150%/200%/300%):"); tempSheet.getRange("B14:C14").merge().setValue(`${getVal(row, settings.MAP.GIO150)} / ${getVal(row, settings.MAP.GIO200)} / ${getVal(row, settings.MAP.GIO300)}`);
-                tempSheet.getRange("A15").setValue("Nghỉ (Ro/N/P/L):"); tempSheet.getRange("B15:C15").merge().setValue(`${getVal(row, settings.MAP.RO)} / ${getVal(row, settings.MAP.N)} / ${getVal(row, settings.MAP.P)} / ${getVal(row, settings.MAP.L)}`);
-
-                // 3. CHI TIẾT THU NHẬP
-                tempSheet.getRange("A17").setValue("CHI TIẾT THU NHẬP").setFontWeight("bold").setBackground("#e9e9e9");
-                const incomeData = [
-                    ["Lương cơ bản (HĐ)", formatVND(getVal(row, settings.MAP.L_COBAN))],
-                    ["Phụ cấp (Ăn/ĐT/NL)", `${formatVND(getVal(row, settings.MAP.PC_ANTRUA))} / ${formatVND(getVal(row, settings.MAP.PC_DIENTHOAI))} / ${formatVND(getVal(row, settings.MAP.PC_DILAI))}`],
-                    ["Lương ngày công thực tế", formatVND(getVal(row, settings.MAP.L_NGAYCONG))],
-                    ["Lương OT / KPI", `${formatVND(getVal(row, settings.MAP.L_OT))} / ${formatVND(getVal(row, settings.MAP.L_KPI))}`],
-                    ["Thưởng / Phúc lợi / Khác", formatVND(getVal(row, settings.MAP.THUONG))],
-                    ["TỔNG THU NHẬP (24)", formatVND(getVal(row, settings.MAP.TONGLUONG))]
-                ];
-                let rowIdx = 18;
-                incomeData.forEach(d => {
-                    tempSheet.getRange(rowIdx, 1).setValue(d[0]);
-                    tempSheet.getRange(rowIdx, 2, 1, 2).merge().setValue(d[1]).setHorizontalAlignment("right");
-                    if (d[0].includes("TỔNG")) tempSheet.getRange(rowIdx, 1, 1, 3).setFontWeight("bold");
-                    rowIdx++;
-                });
-
-                // 4. GIẢM TRỪ & THỰC LĨNH
-                rowIdx++;
-                tempSheet.getRange(rowIdx, 1).setValue("GIẢM TRỪ & KHẤU TRỪ").setFontWeight("bold").setBackground("#e9e9e9"); rowIdx++;
-                tempSheet.getRange(rowIdx, 1).setValue("BHXH / Thuế TNCN"); tempSheet.getRange(rowIdx, 2, 1, 2).merge().setValue(`${formatVND(getVal(row, settings.MAP.BHXH))} / ${formatVND(getVal(row, settings.MAP.THUETNCN))}`).setHorizontalAlignment("right"); rowIdx++;
-                tempSheet.getRange(rowIdx, 1).setValue("THỰC LĨNH (29)").setFontWeight("bold"); tempSheet.getRange(rowIdx, 2, 1, 2).merge().setValue(formatVND(getVal(row, settings.MAP.THUCLINH))).setFontWeight("bold").setHorizontalAlignment("right"); rowIdx++;
-
-                // 5. THANH TOÁN CUỐI CÙNG
-                rowIdx++;
-                tempSheet.getRange(rowIdx, 1).setValue("THANH TOÁN CUỐI CÙNG").setFontWeight("bold").setBackground("#d9ead3"); rowIdx++;
-                tempSheet.getRange(rowIdx, 1).setValue("Tạm ứng / Đã nhận:"); tempSheet.getRange(rowIdx, 2, 1, 2).merge().setValue(`${formatVND(getVal(row, settings.MAP.TAMUNG))} / ${formatVND(getVal(row, settings.MAP.DANHAN))}`).setHorizontalAlignment("right"); rowIdx++;
-                tempSheet.getRange(rowIdx, 1).setValue("SỐ TIỀN CHUYỂN KHOẢN").setFontWeight("bold").setFontSize(12);
-                tempSheet.getRange(rowIdx, 2, 1, 2).merge().setValue(formatVND(getVal(row, settings.MAP.LUONGCK)) + " VND").setFontWeight("bold").setFontSize(12).setHorizontalAlignment("right").setBackground("#fff2cc");
-
-                tempSheet.getRange("A7:C" + rowIdx).setBorder(true, true, true, true, true, true, "#cccccc", SpreadsheetApp.BorderStyle.SOLID);
+                // Thực hiện thay thế thực tế
+                for (const tag in replacements) {
+                    currentTempSheet.createTextFinder(tag).replaceAllWith(String(replacements[tag]));
+                }
 
                 SpreadsheetApp.flush();
-                const pdfBlob = tempSpreadsheet.getAs('application/pdf').setName(`${settings.PDF_FILE_NAME_PREFIX}_${currentMonth}_${employeeName.replace(/\s+/g, '_')}.pdf`);
 
+                // 3. Xuất PDF từ sheet hiện tại
+                // Lưu ý: getAs('application/pdf') sẽ xuất TOÀN BỘ spreadsheet tạm. 
+                // Do đó mỗi lần ta chỉ nên có MỘT sheet trong tempSS hoặc ẩn các sheet khác.
+                const allSheets = tempSS.getSheets();
+                allSheets.forEach(s => { if (s.getName() !== currentTempSheet.getName()) s.hideSheet(); });
+
+                const pdfBlob = tempSS.getAs('application/pdf').setName(`${settings.PDF_FILE_NAME_PREFIX}_${currentMonth}_${employeeName.replace(/\s+/g, '_')}.pdf`);
+
+                // Hiển thị lại các sheet để xóa/quản lý nếu cần (thực ra không cần vì ta ẩn để xuất PDF)
+                allSheets.forEach(s => { if (s !== currentTempSheet && s.getName() !== "Sheet1") s.showSheet(); });
+
+                // 4. Gửi Email
                 const subject = `${settings.EMAIL_SUBJECT_PREFIX} ${payrollMonthYear} - ${employeeName}`;
                 const body = `Kính gửi anh/chị ${employeeName},\n\n` +
                     `${settings.SENDER_NAME} xin gửi anh/chị phiếu lương ${payrollMonthYear} trong file PDF đính kèm.\n\n` +
                     `Trân trọng,\nPhòng Nhân sự - ${settings.SENDER_NAME}`;
 
-                MailApp.sendEmail({ to: String(recipientEmail).trim(), subject: subject, body: body, attachments: [pdfBlob] });
+                MailApp.sendEmail({
+                    to: String(recipientEmail).trim(),
+                    subject: subject,
+                    body: body,
+                    attachments: [pdfBlob]
+                });
+
+                // 5. Dọn dẹp sheet vừa dùng
+                tempSS.deleteSheet(currentTempSheet);
                 emailsSentCount++;
+
             } catch (e) {
                 console.error(`Lỗi cho ${employeeName}: ${e.toString()}`);
                 emailsFailedCount++;
             }
         }
     } finally {
-        if (tempSpreadsheet) DriveApp.getFileById(tempSpreadsheet.getId()).setTrashed(true);
+        if (tempSS) DriveApp.getFileById(tempSS.getId()).setTrashed(true);
     }
 
     SpreadsheetApp.getUi().alert("Hoàn tất", `Đã gửi thành công: ${emailsSentCount}\nThất bại: ${emailsFailedCount}`, SpreadsheetApp.getUi().ButtonSet.OK);
