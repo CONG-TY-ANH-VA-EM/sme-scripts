@@ -80,7 +80,14 @@ function sendMonthlyPayrollEmails_WithPDF() {
     const values = sourceSheet.getDataRange().getValues();
     const statusColIdx = columnLetterToIndex(settings.MAP.SENT_STATUS);
 
-    let emailsSentCount = 0;
+    const stats = {
+        total: values.length - (startRow - 1),
+        success: 0,
+        failed: [],
+        skipped: 0,
+        isResuming: false,
+        monthYear: payrollMonthYear
+    };
 
     // Tạo Spreadsheet tạm
     const tempSS = SpreadsheetApp.create(`Temp_Payroll_Resilient_${new Date().getTime()}`);
@@ -95,20 +102,26 @@ function sendMonthlyPayrollEmails_WithPDF() {
             const currentStatus = row[statusColIdx];
 
             // 1. Kiểm tra trạng thái đã gửi chưa
-            if (currentStatus === "Thành công") continue;
+            if (currentStatus === "Thành công") {
+                stats.skipped++;
+                continue;
+            }
 
             // 2. Kiểm tra Quota Gmail
             if (MailApp.getRemainingDailyQuota() < settings.MIN_QUOTA) {
-                SpreadsheetApp.getUi().alert("Hết hạn mức", "Bạn đã hết hạn mức gửi email của Gmail trong hôm nay. Script sẽ dừng.", SpreadsheetApp.getUi().ButtonSet.OK);
+                console.warn("Hết hạn mức Quota Gmail.");
+                sendSummaryEmail(stats, "TẠM DỪNG (Hết Quota Gmail)");
                 deleteResumeTrigger();
                 return;
             }
 
-            // 3. Kiểm tra Thời gian thực thi (Linh hồn của Resilience)
+            // 3. Kiểm tra Thời gian thực thi (Resilience)
             if (Date.now() - startTime > settings.MAX_RUNTIME_MS) {
                 console.log("Sắp hết thời gian thực thi. Đang khởi tạo cơ chế Resume tự động...");
+                stats.isResuming = true;
                 createResumeTrigger();
-                SpreadsheetApp.getUi().alert("Đang tạm dừng", "Script đã chạy gần 5 phút. Hệ thống sẽ tự động chạy tiếp phần còn lại sau 1 phút nữa để tránh lỗi. Bạn có thể đóng cửa sổ này.", SpreadsheetApp.getUi().ButtonSet.OK);
+                sendSummaryEmail(stats, "TẠM DỪNG (Đang chạy tiếp...)");
+                SpreadsheetApp.getUi().alert("Đang tạm dừng", "Script đã chạy gần 5 phút. Hệ thống sẽ tự động chạy tiếp phần còn lại sau 1 phút nữa và đã gửi báo cáo tạm thời cho bạn.", SpreadsheetApp.getUi().ButtonSet.OK);
                 return;
             }
 
@@ -159,16 +172,18 @@ function sendMonthlyPayrollEmails_WithPDF() {
                 // CẬP NHẬT TRẠNG THÁI NGAY LẬP TỨC
                 sourceSheet.getRange(currentRowNum, statusColIdx + 1).setValue("Thành công").setBackground("#d9ead3");
                 tempSS.deleteSheet(currentTempSheet);
-                emailsSentCount++;
+                stats.success++;
             } catch (err) {
                 console.error(`Lỗi tại hàng ${currentRowNum}: ${err.message}`);
                 sourceSheet.getRange(currentRowNum, statusColIdx + 1).setValue("Lỗi: " + err.message).setBackground("#f4cccc");
+                stats.failed.push({ name: employeeName, row: currentRowNum, error: err.message });
             }
         }
 
         // Hoàn tất toàn bộ
         deleteResumeTrigger();
-        SpreadsheetApp.getUi().alert("Hoàn tất", `Đã gửi thành công thêm ${emailsSentCount} email.`, SpreadsheetApp.getUi().ButtonSet.OK);
+        sendSummaryEmail(stats, "HOÀN TẤT");
+        SpreadsheetApp.getUi().alert("Hoàn tất", `Đã gửi thành công ${stats.success} email. Vui lòng kiểm tra email của bạn để xem báo cáo chi tiết.`, SpreadsheetApp.getUi().ButtonSet.OK);
 
     } finally {
         if (tempSS) DriveApp.getFileById(tempSS.getId()).setTrashed(true);
@@ -365,4 +380,42 @@ function createSampleTemplate() {
     sheet.getRange("A1:C" + row).setFontFamily("Roboto");
 
     SpreadsheetApp.getUi().alert("Thành công", `Đã tạo xong sheet "${sheetName}". Bạn có thể tùy chỉnh thêm font chữ hoặc logo nếu muốn.`, SpreadsheetApp.getUi().ButtonSet.OK);
+}
+
+/**
+ * Gửi email báo cáo tóm tắt cho người vận hành.
+ */
+function sendSummaryEmail(stats, statusMessage) {
+    const userEmail = Session.getActiveUser().getEmail();
+    const subject = `[BÁO CÁO] Kết quả gửi lương ${stats.monthYear} - ${statusMessage}`;
+
+    let body = `Chào bạn,\n\nHệ thống SME Scripts gửi báo cáo kết quả thực hiện gửi phiếu lương:\n\n`;
+    body += `--------------------------------------------------\n`;
+    body += `Trạng thái: ${statusMessage}\n`;
+    body += `Tổng số nhân viên trong danh sách: ${stats.total}\n`;
+    body += `Số ca đã hoàn tất thành công: ${stats.success + stats.skipped}\n`;
+    body += `  - Mới thành công: ${stats.success}\n`;
+    body += `  - Đã xong từ trước (bỏ qua): ${stats.skipped}\n`;
+    body += `Số ca thất bại: ${stats.failed.length}\n`;
+    body += `--------------------------------------------------\n\n`;
+
+    if (stats.failed.length > 0) {
+        body += `DANH SÁCH CÁC TRƯỜNG HỢP LỖI:\n`;
+        stats.failed.forEach(item => {
+            body += `- Hàng ${item.row} | ${item.name}: ${item.error}\n`;
+        });
+        body += `\nVui lòng kiểm tra lại dữ liệu tại các hàng trên và bấm "Gửi lại" sau khi sửa lỗi.\n\n`;
+    }
+
+    if (stats.isResuming) {
+        body += `\nLƯU Ý: Script đã chạm giới hạn thời gian và đang chạy tiếp phần còn lại. Bạn sẽ nhận được báo cáo cuối cùng sau khi hoàn tất.\n`;
+    }
+
+    body += `\nTrân trọng,\nSME Solutions AI Assistant.`;
+
+    try {
+        MailApp.sendEmail(userEmail, subject, body);
+    } catch (e) {
+        console.error("Không thể gửi email báo cáo: " + e.message);
+    }
 }

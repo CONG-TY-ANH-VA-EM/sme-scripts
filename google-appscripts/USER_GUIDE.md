@@ -48,6 +48,7 @@ Phiên bản v1.3 hỗ trợ gửi email cho danh sách rất lớn (hàng trăm
 - **Trạng thái Gửi**: Script sẽ tự động cập nhật cột cuối cùng (mặc định là `AO`) thành "Thành công" sau khi gửi xong.
 - **Tự động Resume**: Nếu danh sách quá dài, script sẽ tự động tạm dừng sau 5 phút và đặt lịch hẹn giờ chạy tiếp phần còn lại sau 1 phút.
 - **Quota Gmail**: Nếu hết hạn mức gửi của Google trong ngày, script sẽ dừng lại và bảo vệ tài khoản của bạn.
+- **Báo cáo Nhật ký tóm tắt**: Ngay sau khi hoàn tất hoặc tạm dừng, script sẽ gửi một email báo cáo tới chính bạn, liệt kê danh sách các nhân viên bị lỗi (nếu có) để bạn tiện theo dõi và xử lý.
 
 ## 6. Lưu ý về Hạn mức (Email Quotas)
 Google áp đặt giới hạn số lượng email bạn có thể gửi trong 24 giờ thông qua Script. Con số này thay đổi tùy loại tài khoản:
