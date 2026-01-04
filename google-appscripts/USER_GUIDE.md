@@ -1,6 +1,9 @@
 # Hướng dẫn Sử dụng Hệ thống Gửi Phiếu Lương Tự động 2025
 
-Chào mừng bạn đến với phiên bản nâng cấp 2025 của công cụ gửi phiếu lương. Phiên bản này hỗ trợ cơ chế **Template Sheet**, cho phép bạn tự thiết kế mẫu phiếu lương chuyên nghiệp ngay trên Google Sheets.
+Chào mừng bạn đến với phiên bản nâng cấp 2025 của công cụ gửi phiếu lương. Phiên bản này hỗ trợ cơ chế **Template Sheet**, cho phép bạn tựHệ thống tự động gửi phiếu lương qua Email sử dụng Google Apps Script.
+
+> [!TIP]
+> **Bạn gặp lỗi khi sử dụng?** Hãy xem ngay [Hướng dẫn Xử lý sự cố và FAQ](file:///opt/workspace/sme-scripts/google-appscripts/FAQ.md).
 
 ## 1. Chuẩn bị Bảng tính lương
 Bảng lương của bạn cần có cấu trúc 40 cột để khớp với các thẻ Tag có sẵn.

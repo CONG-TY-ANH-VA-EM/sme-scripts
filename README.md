@@ -8,7 +8,8 @@ Dự án này chứa các script hỗ trợ quản lý doanh nghiệp nhỏ và 
 Script tự động hóa quy trình gửi phiếu lương hàng tháng tới từng nhân viên qua email dưới dạng file PDF được định dạng chuyên nghiệp.
 
 - **File**: `google-appscripts/salary_send.js`
-- **Hướng dẫn sử dụng**: [`google-appscripts/USER_GUIDE.md`](./google-appscripts/USER_GUIDE.md)
+- **   [Hướng dẫn sử dụng chi tiết](file:///opt/workspace/sme-scripts/google-appscripts/USER_GUIDE.md)
+*   [Câu hỏi thường gặp & Xử lý sự cố (FAQ)](file:///opt/workspace/sme-scripts/google-appscripts/FAQ.md)
 - **Tính năng nổi bật**:
   - Tự động nhận diện danh sách nhân viên linh hoạt.
   - Tối ưu hiệu suất tạo PDF hàng loạt.
