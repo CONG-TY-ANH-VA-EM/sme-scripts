@@ -49,8 +49,17 @@ Phiên bản v1.3 hỗ trợ gửi email cho danh sách rất lớn (hàng trăm
 - **Tự động Resume**: Nếu danh sách quá dài, script sẽ tự động tạm dừng sau 5 phút và đặt lịch hẹn giờ chạy tiếp phần còn lại sau 1 phút.
 - **Quota Gmail**: Nếu hết hạn mức gửi của Google trong ngày, script sẽ dừng lại và bảo vệ tài khoản của bạn.
 
-> [!IMPORTANT]
-> Nếu bạn muốn gửi lại bảng lương cho những người đã báo "Thành công", hãy chọn menu **SME Tools** > **Xóa trạng thái gửi (Reset)**.
+## 6. Lưu ý về Hạn mức (Email Quotas)
+Google áp đặt giới hạn số lượng email bạn có thể gửi trong 24 giờ thông qua Script. Con số này thay đổi tùy loại tài khoản:
+
+| Loại Tài Khoản | Hạn mức Gửi (Recipients/ngày) |
+| :--- | :--- |
+| **Gmail miễn phí (@gmail.com)** | ~100 người/ngày |
+| **Google Workspace (Trả phí)** | ~1.500 - 2.000 người/ngày |
+| **Workspace (Dùng thử)** | ~500 người/ngày |
+
+- **Cơ chế báo hết**: Script v1.3 sử dụng hàm `MailApp.getRemainingDailyQuota()` để kiểm tra hạn mức còn lại trước khi gửi mỗi email.
+- **Xử lý khi hết**: Nếu số lượng nhân viên lớn hơn hạn mức (ví dụ bạn có 150 nhân viên nhưng dùng Gmail miễn phí), script sẽ gửi xong 100 người, sau đó dừng lại và báo lỗi Quota. Bạn chỉ cần đợi 24h sau rồi nhấn gửi lại, script sẽ tự động gửi nốt cho 50 người còn lại nhờ cột **SentStatus**.
 
 ---
 *Phát triển bởi: AI Assistant - SME SOLUTIONS*
