@@ -13,11 +13,11 @@ Bảng lương của bạn cần có cấu trúc 40 cột để khớp với cá
 *Lưu ý: Dữ liệu nhân viên bắt đầu từ hàng 2.*
 
 ## 2. Thiết kế Mẫu Phiếu Lương (Tab TEMPLATE)
-Thay vì vẽ bằng code, giờ đây bạn có thể tự thiết kế phiếu lương ngay trên Google Sheets.
+Thay vì vẽ bằng code hoặc tự kẻ bảng thủ công, giờ đây bạn có thể khởi tạo nhanh:
 
-1. Tạo một Sheet mới và đặt tên chính xác là **TEMPLATE**.
-2. Thiết kế giao diện (Font, màu sắc, logo, bảng biểu) theo ý muốn.
-3. Tại những vị trí cần điền dữ liệu động, hãy nhập các thẻ **{{TAG}}** tương ứng bên dưới.
+1. Mở menu **SME Tools** > **Tạo Sheet Mẫu (TEMPLATE)**.
+2. Script sẽ tự động tạo một Tab tên là `TEMPLATE` với đầy đủ định dạng chuyên nghiệp và các thẻ Tag chuẩn.
+3. Bạn có thể thay đổi logo, font chữ hoặc di chuyển các ô theo ý thích, miễn là giữ nguyên các thẻ **{{TAG}}**.
 
 ### Danh sách các thẻ (Tags) khả dụng:
 - **Thông tin chung**: `{{THANGNAM}}`, `{{SENDER_NAME}}`, `{{SENDER_ADDRESS}}`, `{{SENDER_HOTLINE}}`, `{{CONTACT_EMAIL}}`

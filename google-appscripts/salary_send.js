@@ -242,5 +242,91 @@ function onOpen() {
     const ui = SpreadsheetApp.getUi();
     ui.createMenu('SME Tools')
         .addItem('Gửi Phiếu Lương PDF (Tháng Hiện Tại)', 'sendMonthlyPayrollEmails_WithPDF')
+        .addSeparator()
+        .addItem('Tạo Sheet Mẫu (TEMPLATE)', 'createSampleTemplate')
         .addToUi();
+}
+
+/**
+ * Hàm tự động tạo Sheet TEMPLATE với thiết kế chuyên nghiệp và các thẻ Tag chuẩn.
+ */
+function createSampleTemplate() {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheetName = GLOBAL_CONFIG.TEMPLATE_SHEET_NAME;
+    let sheet = ss.getSheetByName(sheetName);
+
+    if (sheet) {
+        const ui = SpreadsheetApp.getUi();
+        const response = ui.alert('Cảnh báo', `Sheet "${sheetName}" đã tồn tại. Bạn có muốn xóa đi và tạo lại mẫu mới không?`, ui.ButtonSet.YES_NO);
+        if (response !== ui.Button.YES) return;
+        ss.deleteSheet(sheet);
+    }
+
+    sheet = ss.insertSheet(sheetName);
+
+    // --- Thiết kế Giao diện ---
+    // 1. Cấu hình cột
+    sheet.setColumnWidth(1, 220); // Cột nhãn
+    sheet.setColumnWidth(2, 150); // Cột giá trị 1
+    sheet.setColumnWidth(3, 150); // Cột giá trị 2
+
+    // 2. Tiêu đề Công ty
+    sheet.getRange("A1:C1").merge().setValue("{{SENDER_NAME}}").setFontWeight("bold").setFontSize(14).setHorizontalAlignment("center");
+    sheet.getRange("A2:C2").merge().setValue("{{SENDER_ADDRESS}}").setFontSize(9).setHorizontalAlignment("center");
+    sheet.getRange("A3:C3").merge().setValue("Hotline: {{SENDER_HOTLINE}} | Email: {{CONTACT_EMAIL}}").setFontSize(9).setHorizontalAlignment("center");
+
+    // 3. Tiêu đề Phiếu Lương
+    sheet.getRange("A5:C5").merge().setValue("PHIẾU LƯƠNG {{THANGNAM}}").setFontWeight("bold").setFontSize(16).setHorizontalAlignment("center").setBackground("#f0f0f0");
+
+    // 4. Khối thông tin nhân viên
+    sheet.getRange("A7").setValue("THÔNG TIN NHÂN VIÊN").setFontWeight("bold").setBackground("#e0e0e0");
+    sheet.getRange("A8").setValue("Họ và tên:"); sheet.getRange("B8:C8").merge().setValue("{{HOTEN}}").setFontWeight("bold");
+    sheet.getRange("A9").setValue("Vị trí:"); sheet.getRange("B9:C9").merge().setValue("{{VITRI}}");
+    sheet.getRange("A10").setValue("Tài khoản nhận:"); sheet.getRange("B10:C10").merge().setValue("{{STK}} ({{NGANHANG}})");
+
+    // 5. Khối Chi tiết công xá
+    sheet.getRange("A12").setValue("CHI TIẾT CÔNG XÁ").setFontWeight("bold").setBackground("#e0e0e0");
+    sheet.getRange("A13").setValue("Công chuẩn / Thực tế:"); sheet.getRange("B13").setValue("{{NGAYCONGCHUAN}}"); sheet.getRange("C13").setValue("{{TONGGIOTT}} giờ");
+    sheet.getRange("A14").setValue("Tăng ca (150%/200%/300%):"); sheet.getRange("B14:C14").merge().setValue("{{GIO150}} / {{GIO200}} / {{GIO300}}");
+    sheet.getRange("A15").setValue("Nghỉ (Ro/N/P/L):"); sheet.getRange("B15:C15").merge().setValue("{{RO}} / {{N}} / {{P}} / {{L}}");
+
+    // 6. Khối Thu nhập
+    sheet.getRange("A17").setValue("CHI TIẾT THU NHẬP").setFontWeight("bold").setBackground("#e0e0e0");
+    const incomeTags = [
+        ["Lương cơ bản (HĐ)", "{{L_COBAN}}"],
+        ["Phụ cấp (Ăn/ĐT/NL)", "{{PC_ANTRUA}} / {{PC_DIENTHOAI}} / {{PC_DILAI}}"],
+        ["Lương ngày công thực tế", "{{L_NGAYCONG}}"],
+        ["Lương OT", "{{L_OT}}"],
+        ["Lương KPI / Hiệu quả", "{{L_KPI}}"],
+        ["Thưởng / Phúc lợi khác", "{{THUONG}}"],
+        ["TỔNG THU NHẬP", "{{TONGLUONG}}"]
+    ];
+    let row = 18;
+    incomeTags.forEach(pair => {
+        sheet.getRange(row, 1).setValue(pair[0]);
+        sheet.getRange(row, 2, 1, 2).merge().setValue(pair[1]).setHorizontalAlignment("right");
+        if (pair[0].includes("TỔNG")) sheet.getRange(row, 1, 1, 3).setFontWeight("bold").setBackground("#fff2cc");
+        row++;
+    });
+
+    // 7. Khối Khấu trừ
+    row++;
+    sheet.getRange(row, 1).setValue("GIẢM TRỪ & KHẤU TRỪ").setFontWeight("bold").setBackground("#e0e0e0"); row++;
+    sheet.getRange(row, 1).setValue("BHXH / Thuế TNCN:"); sheet.getRange(row, 2, 1, 2).merge().setValue("{{BHXH}} / {{THUETNCN}}").setHorizontalAlignment("right"); row++;
+    sheet.getRange(row, 1).setValue("THỰC LĨNH").setFontWeight("bold"); sheet.getRange(row, 2, 1, 2).merge().setValue("{{THUCLINH}}").setFontWeight("bold").setHorizontalAlignment("right"); row++;
+
+    // 8. Khối Thanh toán
+    row++;
+    sheet.getRange(row, 1).setValue("THANH TOÁN CUỐI CÙNG").setFontWeight("bold").setBackground("#d9ead3"); row++;
+    sheet.getRange(row, 1).setValue("Tạm ứng / Đã quyết toán:"); sheet.getRange(row, 2, 1, 2).merge().setValue("{{TAMUNG}} / {{DANHAN}}").setHorizontalAlignment("right"); row++;
+    sheet.getRange(row, 1).setValue("SỐ TIỀN CHUYỂN KHOẢN").setFontWeight("bold").setFontSize(12);
+    sheet.getRange(row, 2, 1, 2).merge().setValue("{{LUONGCK}} VND").setFontWeight("bold").setFontSize(12).setHorizontalAlignment("right").setBackground("#fff2cc");
+
+    // Border toàn bộ vùng nội dung
+    sheet.getRange("A7:C" + row).setBorder(true, true, true, true, true, true, "#cccccc", SpreadsheetApp.BorderStyle.SOLID);
+
+    // Format hiển thị cho người dùng
+    sheet.getRange("A1:C" + row).setFontFamily("Roboto");
+
+    SpreadsheetApp.getUi().alert("Thành công", `Đã tạo xong sheet "${sheetName}". Bạn có thể tùy chỉnh thêm font chữ hoặc logo nếu muốn.`, SpreadsheetApp.getUi().ButtonSet.OK);
 }
