@@ -42,10 +42,15 @@ Thay vì vẽ bằng code hoặc tự kẻ bảng thủ công, giờ đây bạn
 
 ---
 
-## 5. Tùy chỉnh Cấu hình nâng cao
-Bạn có thể tạo sheet **CONFIG** để ghi đè các tham số sau:
-- `TEMPLATE_SHEET_NAME`: Nếu bạn muốn đặt tên tab mẫu khác.
-- `START_ROW`: Nếu dữ liệu không bắt đầu từ hàng 2.
+## 5. Cơ chế Tự động chạy lại (Resilience)
+Phiên bản v1.3 hỗ trợ gửi email cho danh sách rất lớn (hàng trăm/nghìn người) mà không lo bị lỗi giới hạn thời gian:
+
+- **Trạng thái Gửi**: Script sẽ tự động cập nhật cột cuối cùng (mặc định là `AO`) thành "Thành công" sau khi gửi xong.
+- **Tự động Resume**: Nếu danh sách quá dài, script sẽ tự động tạm dừng sau 5 phút và đặt lịch hẹn giờ chạy tiếp phần còn lại sau 1 phút.
+- **Quota Gmail**: Nếu hết hạn mức gửi của Google trong ngày, script sẽ dừng lại và bảo vệ tài khoản của bạn.
+
+> [!IMPORTANT]
+> Nếu bạn muốn gửi lại bảng lương cho những người đã báo "Thành công", hãy chọn menu **SME Tools** > **Xóa trạng thái gửi (Reset)**.
 
 ---
 *Phát triển bởi: AI Assistant - SME SOLUTIONS*
