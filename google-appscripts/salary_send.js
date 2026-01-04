@@ -295,6 +295,7 @@ function onOpen() {
         .addItem('Xóa trạng thái gửi (Reset)', 'resetSentStatus')
         .addSeparator()
         .addItem('Tạo Sheet Mẫu (TEMPLATE)', 'createSampleTemplate')
+        .addItem('Tạo Sheet Cấu hình (CONFIG)', 'createConfigSheet')
         .addToUi();
 }
 
