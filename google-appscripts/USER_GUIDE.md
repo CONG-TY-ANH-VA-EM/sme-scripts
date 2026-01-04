@@ -19,6 +19,9 @@ Thay vì vẽ bằng code hoặc tự kẻ bảng thủ công, giờ đây bạn
 2. Script sẽ tự động tạo một Tab tên là `TEMPLATE` với đầy đủ định dạng chuyên nghiệp và các thẻ Tag chuẩn.
 3. Bạn có thể thay đổi logo, font chữ hoặc di chuyển các ô theo ý thích, miễn là giữ nguyên các thẻ **{{TAG}}**.
 
+> [!TIP]
+> **Mẹo thiết kế cho A4:** Để phiếu lương PDF trông vừa vặn nhất, bạn nên giữ tổng độ rộng các cột trong khoảng **700px - 750px**. Script v1.5 mặc định tạo mẫu với độ rộng 300px + 200px + 200px = 700px, rất chuẩn cho khổ A4 Portrait.
+
 ### Danh sách các thẻ (Tags) khả dụng:
 - **Thông tin chung**: `{{THANGNAM}}`, `{{SENDER_NAME}}`, `{{SENDER_ADDRESS}}`, `{{SENDER_HOTLINE}}`, `{{CONTACT_EMAIL}}`
 - **Thông tin nhân viên**: `{{HOTEN}}`, `{{VITRI}}`, `{{STK}}`, `{{NGANHANG}}`, `{{NGAYGUI}}`

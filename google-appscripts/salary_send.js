@@ -314,19 +314,26 @@ function createSampleTemplate() {
     }
 
     sheet = ss.insertSheet(sheetName);
+    sheet.setHideGridlines(true); // Ẩn đường lưới cho PDF sạch sẽ
 
-    // --- Thiết kế Giao diện ---
-    // 1. Cấu hình cột
-    sheet.setColumnWidth(1, 220); // Cột nhãn
-    sheet.setColumnWidth(2, 150); // Cột giá trị 1
-    sheet.setColumnWidth(3, 150); // Cột giá trị 2
+    // --- Thiết kế Giao diện Tối ưu A4 ---
+    // 1. Cấu hình cột (Tổng ~700px để vừa khít A4 Portrait)
+    sheet.setColumnWidth(1, 300); // Cột nhãn
+    sheet.setColumnWidth(2, 200); // Cột giá trị 1
+    sheet.setColumnWidth(3, 200); // Cột giá trị 2
+
+    // Cấu hình độ cao hàng mặc định và căn lề giữa dọc
+    sheet.getRange("A1:C100").setVerticalAlignment("middle");
+    sheet.setRowHeights(1, 100, 28);
 
     // 2. Tiêu đề Công ty
+    sheet.setRowHeight(1, 35);
     sheet.getRange("A1:C1").merge().setValue("{{SENDER_NAME}}").setFontWeight("bold").setFontSize(14).setHorizontalAlignment("center");
     sheet.getRange("A2:C2").merge().setValue("{{SENDER_ADDRESS}}").setFontSize(9).setHorizontalAlignment("center");
     sheet.getRange("A3:C3").merge().setValue("Hotline: {{SENDER_HOTLINE}} | Email: {{CONTACT_EMAIL}}").setFontSize(9).setHorizontalAlignment("center");
 
     // 3. Tiêu đề Phiếu Lương
+    sheet.setRowHeight(5, 40);
     sheet.getRange("A5:C5").merge().setValue("PHIẾU LƯƠNG {{THANGNAM}}").setFontWeight("bold").setFontSize(16).setHorizontalAlignment("center").setBackground("#f0f0f0");
 
     // 4. Khối thông tin nhân viên
@@ -370,6 +377,7 @@ function createSampleTemplate() {
     row++;
     sheet.getRange(row, 1).setValue("THANH TOÁN CUỐI CÙNG").setFontWeight("bold").setBackground("#d9ead3"); row++;
     sheet.getRange(row, 1).setValue("Tạm ứng / Đã quyết toán:"); sheet.getRange(row, 2, 1, 2).merge().setValue("{{TAMUNG}} / {{DANHAN}}").setHorizontalAlignment("right"); row++;
+    sheet.setRowHeight(row, 35);
     sheet.getRange(row, 1).setValue("SỐ TIỀN CHUYỂN KHOẢN").setFontWeight("bold").setFontSize(12);
     sheet.getRange(row, 2, 1, 2).merge().setValue("{{LUONGCK}} VND").setFontWeight("bold").setFontSize(12).setHorizontalAlignment("right").setBackground("#fff2cc");
 
