@@ -38,9 +38,12 @@ Tài liệu này giúp bạn tự giải quyết các vấn đề nhanh chóng k
 ### 8. Tôi nên sửa cấu hình trong code hay tạo tab CONFIG?
 - **Độ ưu tiên**: Tab **CONFIG** có ưu tiên **CAO NHẤT**. Nếu bạn tạo tab `CONFIG`, script sẽ lấy giá trị tại đó và bỏ qua các giá trị mặc định trong code.
 - **Cách thiết lập tab CONFIG**:
-    - Cột A: Tên cấu hình (Ví dụ: `SENDER_NAME`, `SHEET_NAME_PREFIX`).
-    - Cột B: Giá trị bạn muốn đặt.
+    1. Vào menu **SME Tools** > **Tạo Sheet Cấu hình (CONFIG)**.
+    2. Cập nhật các giá trị tại cột B (màu vàng).
 - **Lời khuyên**: Nếu bạn không rành về code, hãy sử dụng tab **CONFIG** để thay đổi thông tin công ty hoặc tên sheet tháng. Việc này giúp bạn tránh lỡ tay làm hỏng mã nguồn.
+
+### 9. Tôi muốn đổi tên các cột (Vd: từ AO sang AP) thì làm sao?
+- Hiện tại, tính năng đổi Mapping cột qua tab `CONFIG` chưa được hỗ trợ để đảm bảo tính ổn định. Bạn vẫn cần sửa trong phần `MAP` của `GLOBAL_CONFIG` trong trình soạn thảo code (Apps Script).
 
 ---
 **Bạn vẫn gặp khó khăn?** Hãy liên hệ bộ phận kỹ thuật hoặc để lại Issue trên Github nhé!

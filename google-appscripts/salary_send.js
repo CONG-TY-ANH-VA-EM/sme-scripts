@@ -428,3 +428,49 @@ function sendSummaryEmail(stats, statusMessage) {
         console.error("Không thể gửi email báo cáo: " + e.message);
     }
 }
+
+/**
+ * Hàm tạo tab CONFIG giúp người dùng cấu hình không cần sửa code.
+ */
+function createConfigSheet() {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheetName = "CONFIG";
+    let sheet = ss.getSheetByName(sheetName);
+
+    if (sheet) {
+        const ui = SpreadsheetApp.getUi();
+        const response = ui.alert('Cảnh báo', `Sheet "${sheetName}" đã tồn tại. Bạn có muốn xóa đi và tạo cấu hình mặc định không?`, ui.ButtonSet.YES_NO);
+        if (response !== ui.Button.YES) return;
+        ss.deleteSheet(sheet);
+    }
+
+    sheet = ss.insertSheet(sheetName);
+
+    // Header
+    const header = [["THAM SỐ", "GIÁ TRỊ", "MÔ TẢ / GIẢI THÍCH"]];
+    sheet.getRange(1, 1, 1, 3).setValues(header).setFontWeight("bold").setBackground("#cfe2f3");
+
+    // Dữ liệu từ GLOBAL_CONFIG
+    const configData = [
+        ["SENDER_NAME", GLOBAL_CONFIG.SENDER_NAME, "Tên công ty xuất hiện trên tiêu đề phiếu lương"],
+        ["SENDER_ADDRESS", GLOBAL_CONFIG.SENDER_ADDRESS, "Địa chỉ công ty"],
+        ["SENDER_HOTLINE", GLOBAL_CONFIG.SENDER_HOTLINE, "Hotline hỗ trợ"],
+        ["CONTACT_EMAIL", GLOBAL_CONFIG.CONTACT_EMAIL, "Email nhận phản hồi khiếu nại lương"],
+        ["SHEET_NAME_PREFIX", GLOBAL_CONFIG.SHEET_NAME_PREFIX, "Tiền tố của tab tháng (Vd: T thì tab là T1, T2...)"],
+        ["EMAIL_SUBJECT_PREFIX", GLOBAL_CONFIG.EMAIL_SUBJECT_PREFIX, "Tiền tố tiêu đề Email gửi đi"],
+        ["PDF_FILE_NAME_PREFIX", GLOBAL_CONFIG.PDF_FILE_NAME_PREFIX, "Tiền tố tên file PDF đính kèm"],
+        ["START_ROW", GLOBAL_CONFIG.START_ROW, "Hàng bắt đầu có dữ liệu nhân viên (thường là 2)"],
+        ["MIN_QUOTA", GLOBAL_CONFIG.MIN_QUOTA, "Số lượng email tối thiểu còn lại để script tiếp tục chạy"]
+    ];
+
+    sheet.getRange(2, 1, configData.length, 3).setValues(configData);
+
+    // Định dạng
+    sheet.setColumnWidth(1, 200);
+    sheet.setColumnWidth(2, 300);
+    sheet.setColumnWidth(3, 400);
+    sheet.getRange(2, 2, configData.length, 1).setBackground("#fff2cc"); // Tô màu vàng cột giá trị để dễ nhận diện
+    sheet.getRange(1, 1, configData.length + 1, 3).setBorder(true, true, true, true, true, true, "#cccccc", SpreadsheetApp.BorderStyle.SOLID);
+
+    SpreadsheetApp.getUi().alert("Thành công", `Đã tạo xong tab "${sheetName}". Bạn chỉ cần thay đổi giá trị tại cột B (màu vàng) để script tự động áp dụng.`, SpreadsheetApp.getUi().ButtonSet.OK);
+}

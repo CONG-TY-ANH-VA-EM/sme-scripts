@@ -13,14 +13,27 @@ Bảng lương của bạn cần có cấu trúc 40 cột để khớp với cá
 2. Mở Google Sheets > **Tệp (File)** > **Nhập (Import)** > **Tải lên** file CSV này.
 3. Đổi tên sheet vừa nhập thành `T + <số tháng>` (Ví dụ: `T1`).
 
+![Minh họa Bảng dữ liệu lương](../docs/payroll_data_sheet.png)
+
 *Lưu ý: Dữ liệu nhân viên bắt đầu từ hàng 2.*
 
-## 2. Thiết kế Mẫu Phiếu Lương (Tab TEMPLATE)
+## 2. Cấu hình linh hoạt (Tab CONFIG)
+Trước khi gửi, bạn nên kiểm tra thông tin công ty và cài đặt:
+1. Mở menu **SME Tools** > **Tạo Sheet Cấu hình (CONFIG)**.
+2. Một tab mới tên `CONFIG` sẽ xuất hiện. 
+3. Bạn hãy sửa các giá trị ở **Cột B (màu vàng)** như Tên công ty, Địa chỉ, Tiền tố tên sheet. 
+4. Script sẽ luôn ưu tiên lấy cấu hình từ tab này trước khi xem trong mã nguồn.
+
+![Minh họa Tab CONFIG](../docs/payroll_config_sheet.png)
+
+## 3. Thiết kế Mẫu Phiếu Lương (Tab TEMPLATE)
 Thay vì vẽ bằng code hoặc tự kẻ bảng thủ công, giờ đây bạn có thể khởi tạo nhanh:
 
 1. Mở menu **SME Tools** > **Tạo Sheet Mẫu (TEMPLATE)**.
 2. Script sẽ tự động tạo một Tab tên là `TEMPLATE` với đầy đủ định dạng chuyên nghiệp và các thẻ Tag chuẩn.
 3. Bạn có thể thay đổi logo, font chữ hoặc di chuyển các ô theo ý thích, miễn là giữ nguyên các thẻ **{{TAG}}**.
+
+![Minh họa Tab TEMPLATE](../docs/payroll_template_sheet.png)
 
 > [!TIP]
 > **Mẹo thiết kế cho A4:** Để phiếu lương PDF trông vừa vặn nhất, bạn nên giữ tổng độ rộng các cột trong khoảng **700px - 750px**. Script v1.5 mặc định tạo mẫu với độ rộng 300px + 200px + 200px = 700px, rất chuẩn cho khổ A4 Portrait.
@@ -55,6 +68,8 @@ Phiên bản v1.3 hỗ trợ gửi email cho danh sách rất lớn (hàng trăm
 - **Tự động Resume**: Nếu danh sách quá dài, script sẽ tự động tạm dừng sau 5 phút và đặt lịch hẹn giờ chạy tiếp phần còn lại sau 1 phút.
 - **Quota Gmail**: Nếu hết hạn mức gửi của Google trong ngày, script sẽ dừng lại và bảo vệ tài khoản của bạn.
 - **Báo cáo Nhật ký tóm tắt**: Ngay sau khi hoàn tất hoặc tạm dừng, script sẽ gửi một email báo cáo tới chính bạn, liệt kê danh sách các nhân viên bị lỗi (nếu có) để bạn tiện theo dõi và xử lý.
+
+![Minh họa Phiếu lương PDF hoàn thiện](../docs/payroll_pdf_slip.png)
 
 ## 6. Lưu ý về Hạn mức (Email Quotas)
 Google áp đặt giới hạn số lượng email bạn có thể gửi trong 24 giờ thông qua Script. Con số này thay đổi tùy loại tài khoản:
