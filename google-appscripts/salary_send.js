@@ -455,7 +455,7 @@ function createConfigSheet() {
         ["SENDER_NAME", GLOBAL_CONFIG.SENDER_NAME, "Tên công ty xuất hiện trên tiêu đề phiếu lương"],
         ["SENDER_ADDRESS", GLOBAL_CONFIG.SENDER_ADDRESS, "Địa chỉ công ty"],
         ["SENDER_HOTLINE", GLOBAL_CONFIG.SENDER_HOTLINE, "Hotline hỗ trợ"],
-        ["CONTACT_EMAIL", GLOBAL_CONFIG.CONTACT_EMAIL, "Email nhận phản hồi khiếu nại lương"],
+        ["CONTACT_EMAIL", GLOBAL_CONFIG.CONTACT_EMAIL, "Email hiển thị trên phiếu lương để nhân viên liên hệ khi cần (không phải email dùng để gửi)"],
         ["SHEET_NAME_PREFIX", GLOBAL_CONFIG.SHEET_NAME_PREFIX, "Tiền tố của tab tháng (Vd: T thì tab là T1, T2...)"],
         ["EMAIL_SUBJECT_PREFIX", GLOBAL_CONFIG.EMAIL_SUBJECT_PREFIX, "Tiền tố tiêu đề Email gửi đi"],
         ["PDF_FILE_NAME_PREFIX", GLOBAL_CONFIG.PDF_FILE_NAME_PREFIX, "Tiền tố tên file PDF đính kèm"],

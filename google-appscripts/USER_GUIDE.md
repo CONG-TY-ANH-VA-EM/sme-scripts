@@ -85,8 +85,12 @@ Khi mọi thứ đã sẵn sàng, hãy thực hiện gửi:
 > Mỗi ngày Google chỉ cho phép gửi tối đa một số lượng email nhất định (tài khoản thường khoảng 100 email/ngày). Nếu hết hạn mức, bạn chỉ cần đợi đến ngày hôm sau và nhấn gửi lại, máy sẽ tự động gửi tiếp cho những người chưa nhận được thư.
 
 > [!NOTE]
-> **Làm sao để biết ai chưa nhận được thư?**
-> Bạn hãy xem ở cột cuối cùng (`SentStatus`). Những ai có chữ "Thành công" là đã nhận được thư. Những ai để trống là chưa gửi.
+**Làm sao để biết ai chưa nhận được thư?**
+Bạn hãy xem ở cột cuối cùng (`SentStatus`). Những ai có chữ "Thành công" là đã nhận được thư. Những ai để trống là chưa gửi.
+
+> [!TIP]
+> **Thư được gửi từ địa chỉ Email nào?**
+> Hệ thống sẽ sử dụng chính tài khoản Email mà bạn đang dùng để chạy công cụ này để gửi cho nhân viên. Vì vậy, bạn không cần điền "Email gửi đi". Ô `CONTACT_EMAIL` trong phần cấu hình chỉ là địa chỉ hiển thị trên phiếu lương để nhân viên liên hệ khi có thắc mắc.
 
 > [!IMPORTANT]
 > **Tôi muốn sửa lại mẫu phiếu lương?**
