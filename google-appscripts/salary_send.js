@@ -1,37 +1,46 @@
 /**
- * Tên hàm: sendMonthlyPayrollEmails_WithPDF
- * Mô tả: Đọc dữ liệu từ Google Sheet bảng lương (tên sheet động theo tháng, không có header),
- *        tạo file PDF phiếu lương cho mỗi nhân viên và gửi email đính kèm PDF.
- *        Dữ liệu nhân viên từ hàng 9 đến hàng 35.
- *        Cột Tên Nhân Viên: B
- *        Cột Email: CL
- *        Cột Tổng Lương: CJ
- * Được phát triển bởi: AI Assistant - SME SOLUTIONS
- */
-/**
  * =============================================================================
- *                      CẤU HÌNH (CONFIGURATION)
+ *  CÔNG CỤ GỬI PHIẾU LƯƠNG TỰ ĐỘNG (SME Payroll Tool) — v2.0
  * =============================================================================
- * Bạn có thể thay đổi các tham số dưới đây để phù hợp với file Sheet của mình.
- * HOẶC: Bạn có thể tạo 1 Tab tên là "CONFIG" trong Google Sheets để lưu cấu hình.
+ *  Mô tả:
+ *    - Đọc dữ liệu lương từ tab tháng (vd: T5 = lương tháng 5), KHÔNG dùng tab này thì sửa SHEET_NAME_PREFIX.
+ *    - Dòng 1 là tiêu đề, dữ liệu nhân viên bắt đầu từ START_ROW (mặc định dòng 2).
+ *    - Với mỗi nhân viên: render mẫu (tab TEMPLATE) -> xuất PDF -> (tùy chọn) lưu Drive -> gửi email.
+ *    - Tự động RESUME khi chạm giới hạn 6 phút của Google, và dừng an toàn khi sắp hết quota Gmail.
+ *
+ *  Vị trí cột mặc định (đổi được qua tab CONFIG, dòng có key dạng "MAP.XXX"):
+ *    - Tên nhân viên : cột B  (MAP.HOTEN)
+ *    - Email         : cột F  (MAP.EMAIL)
+ *    - Tổng lương     : cột AE (MAP.TONGLUONG)
+ *    - Thực lĩnh      : cột AJ (MAP.THUCLINH)
+ *    - Lương chuyển khoản: cột AN (MAP.LUONGCK)
+ *    - Trạng thái gửi : cột AO (MAP.SENT_STATUS)
+ *
+ *  Phát triển bởi: AI Assistant - SME SOLUTIONS
+ *
+ *  GHI CHÚ BẢO MẬT (PDF password):
+ *    Google Apps Script KHÔNG hỗ trợ đặt mật khẩu / mã hoá PDF native.
+ *    Thay vào đó dùng SECURE_SHARE = true: file PDF lưu trên Drive chỉ được chia sẻ
+ *    riêng cho đúng email nhân viên, và email sẽ kèm link truy cập riêng tư.
+ * =============================================================================
  */
+
 const GLOBAL_CONFIG = {
     // 1. Vị trí dữ liệu
-    START_ROW: 2,              // Hàng bắt đầu có dữ liệu (Hàng 1 là Header)
-    COL_EMAIL: "F",            // Cột Email
-    COL_NAME: "B",             // Cột Tên
+    START_ROW: 2,                    // Hàng bắt đầu có dữ liệu (Hàng 1 là Header)
 
     // 2. Tên các Sheet quan trọng
-    SHEET_NAME_PREFIX: "T",    // Tiền tố tên sheet tháng (Vd: T5)
-    TEMPLATE_SHEET_NAME: "TEMPLATE", // Tên sheet chứa mẫu phiếu lương
+    SHEET_NAME_PREFIX: "T",          // Tiền tố tên tab tháng (Vd: T5 cho lương tháng 5)
+    TEMPLATE_SHEET_NAME: "TEMPLATE", // Tên tab chứa mẫu phiếu lương
+    LOG_SHEET_NAME: "LOG",           // Tên tab ghi nhật ký gửi
 
-    // 3. Thông tin Công ty (Sẽ dùng làm tag {{SENDER_NAME}}, {{SENDER_ADDRESS}}...)
+    // 3. Thông tin Công ty (dùng làm tag {{SENDER_NAME}}, {{SENDER_ADDRESS}}...)
     SENDER_NAME: "SME SOLUTIONS JOINT STOCK COMPANY",
     SENDER_ADDRESS: "Tòa nhà Alpha, số 123 Đường Beta, Quận Gamma, Hà Nội",
     SENDER_HOTLINE: "1900 xxxx",
     CONTACT_EMAIL: "hr@sme-solutions.vn",
 
-    // 4. Mapping cột (Sẽ dùng làm tag {{HOTEN}}, {{VITRI}}...)
+    // 4. Mapping cột (dùng làm tag {{HOTEN}}, {{VITRI}}...). Đổi qua CONFIG bằng key "MAP.HOTEN", "MAP.EMAIL"...
     MAP: {
         SOTT: "A", HOTEN: "B", VITRI: "C", NGAYGUI: "D", STK: "E", EMAIL: "F", NGANHANG: "G",
         NGAYCONGCHUAN: "H", TONGGIOTT: "I", GIO150: "J", GIO200: "K", GIO300: "L",
@@ -41,47 +50,205 @@ const GLOBAL_CONFIG = {
         PC_MAYTINH: "Z", CONGTACPHI: "AA", THUONG: "AB", TRU_CHIU_THUE: "AC", TRU_KG_CHIU_THUE: "AD",
         TONGLUONG: "AE", PHEPCONLAI: "AF", GIAMTRU: "AG", BHXH: "AH", THUETNCN: "AI",
         THUCLINH: "AJ", PHAT: "AK", TAMUNG: "AL", DANHAN: "AM", LUONGCK: "AN",
-        SENT_STATUS: "AO"      // Cột theo dõi trạng thái gửi
+        SENT_STATUS: "AO"            // Cột theo dõi trạng thái gửi
     },
 
-    // 5. Cấu hình Resilience (Tự động resume & Quota)
-    MAX_RUNTIME_MS: 5 * 60 * 1000, // 5 phút (Giới hạn thực thi Google là 6p)
-    MIN_QUOTA: 10,                 // Dừng gửi nếu quota Gmail < 10
+    // 5. Resilience (tự động resume & quota)
+    MAX_RUNTIME_MS: 5 * 60 * 1000,   // 5 phút (giới hạn thực thi Google là 6p)
+    MIN_QUOTA: 10,                   // Dừng gửi nếu quota Gmail < số này
 
-    // 6. Cấu hình Email
+    // 6. Email
     EMAIL_SUBJECT_PREFIX: "Phiếu Lương",
-    PDF_FILE_NAME_PREFIX: "PhieuLuong"
+    PDF_FILE_NAME_PREFIX: "PhieuLuong",
+    ATTACH_PDF_TO_EMAIL: true,       // true = đính kèm PDF vào email
+
+    // 7. Lưu trữ Drive (mới v2.0)
+    SAVE_TO_DRIVE: true,             // true = lưu mỗi phiếu vào Drive theo Năm/Tháng
+    DRIVE_ROOT_FOLDER_NAME: "Phiếu lương SME", // Tên thư mục gốc (tạo tự động ở My Drive nếu chưa có)
+    DRIVE_ROOT_FOLDER_ID: "",        // Nếu điền ID thư mục có sẵn sẽ ưu tiên dùng (bỏ qua tên ở trên)
+
+    // 8. Bảo mật (thay cho "password PDF" — xem ghi chú đầu file)
+    SECURE_SHARE: false,             // true = file Drive chỉ chia sẻ cho đúng email nhân viên + gửi link
+
+    // 9. Nhật ký
+    ENABLE_LOG: true                 // true = ghi lịch sử gửi vào tab LOG
 };
 
+// =============================================================================
+//  ENTRY POINTS (các hàm chạy từ menu / trigger)
+// =============================================================================
+
 /**
- * Hàm chính để gửi Email bảng lương sử dụng Template Sheet.
- * Hỗ trợ tự động Resume nếu gặp lỗi Timeout hoặc hết thời gian.
+ * MENU + giữ tên cũ để tương thích nút "Run" trong Apps Script.
+ * Gửi phiếu lương cho THÁNG HIỆN TẠI (bắt đầu mới, không phải resume).
  */
 function sendMonthlyPayrollEmails_WithPDF() {
-    const startTime = Date.now();
+    const now = new Date();
+    setTargetMonth(now.getMonth() + 1, now.getFullYear());
+    deleteResumeTrigger(); // bắt đầu mới: dọn trigger resume cũ
+    processPayroll();
+}
+
+/**
+ * MENU: chọn tháng thủ công (vd gửi lương T5 trong khi đang là T6).
+ */
+function sendPayrollForSelectedMonth() {
+    const ui = SpreadsheetApp.getUi();
+    const now = new Date();
+    const resp = ui.prompt(
+        "Chọn kỳ lương",
+        `Nhập tháng cần gửi (vd: 5  hoặc  5/2025).\nĐể trống = tháng hiện tại (${now.getMonth() + 1}/${now.getFullYear()}).`,
+        ui.ButtonSet.OK_CANCEL
+    );
+    if (resp.getSelectedButton() !== ui.Button.OK) return;
+
+    let raw = resp.getResponseText().trim();
+    let month, year;
+    if (!raw) {
+        month = now.getMonth() + 1;
+        year = now.getFullYear();
+    } else {
+        const parts = raw.split(/[\/\-\s]+/);
+        month = parseInt(parts[0], 10);
+        year = parts[1] ? parseInt(parts[1], 10) : now.getFullYear();
+    }
+    if (!month || month < 1 || month > 12) {
+        ui.alert("Lỗi", "Tháng không hợp lệ. Vui lòng nhập 1-12.", ui.ButtonSet.OK);
+        return;
+    }
+    setTargetMonth(month, year);
+    deleteResumeTrigger();
+    processPayroll();
+}
+
+/**
+ * TRIGGER (chỉ chạy ngầm): chạy tiếp phần còn lại. KHÔNG đặt lại tháng đích.
+ */
+function resumePayroll() {
+    // Resume PHẢI có tháng đích rõ ràng. Nếu thiếu (vd trigger mồ côi sau khi đã hoàn tất),
+    // TUYỆT ĐỐI không mặc định về tháng hiện tại — sẽ gửi nhầm tab / nhầm người.
+    const p = PropertiesService.getDocumentProperties();
+    if (!p.getProperty('PAYROLL_MONTH')) {
+        deleteResumeTrigger();
+        return;
+    }
+    processPayroll();
+}
+
+/**
+ * MENU: gửi thử 1 phiếu về email người vận hành (hoặc email nhập tay) để xem layout.
+ * KHÔNG đánh dấu trạng thái, KHÔNG lưu Drive thật, KHÔNG ghi log.
+ */
+function sendTestPayslip() {
+    const ui = SpreadsheetApp.getUi();
     const settings = getSettings();
-    const currentDate = new Date();
-    const currentMonth = currentDate.getMonth() + 1;
-    const currentYear = currentDate.getFullYear();
-    const payrollMonthYear = `Tháng ${currentMonth}/${currentYear}`;
-    const sheetName = settings.SHEET_NAME_PREFIX + currentMonth;
+    const operator = Session.getActiveUser().getEmail();
+
+    const emailResp = ui.prompt(
+        "Gửi thử phiếu lương",
+        `Email nhận bản thử (để trống = email của bạn: ${operator}):`,
+        ui.ButtonSet.OK_CANCEL
+    );
+    if (emailResp.getSelectedButton() !== ui.Button.OK) return;
+    const testEmail = emailResp.getResponseText().trim() || operator;
+
+    const startRow = Number(settings.START_ROW) || 2;
+    const rowResp = ui.prompt(
+        "Gửi thử phiếu lương",
+        `Lấy dữ liệu từ HÀNG SỐ mấy? (mặc định ${startRow}):`,
+        ui.ButtonSet.OK_CANCEL
+    );
+    if (rowResp.getSelectedButton() !== ui.Button.OK) return;
+    const rowNum = parseInt(rowResp.getResponseText().trim(), 10) || startRow;
+
+    const { month, year } = getTargetMonth();
+    const payrollMonthYear = `Tháng ${month}/${year}`;
+    const sheetName = settings.SHEET_NAME_PREFIX + month;
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sourceSheet = ss.getSheetByName(sheetName);
+    const templateSheet = ss.getSheetByName(settings.TEMPLATE_SHEET_NAME);
+    if (!sourceSheet || !templateSheet) {
+        ui.alert("Lỗi", `Cần có tab "${sheetName}" và "${settings.TEMPLATE_SHEET_NAME}".`, ui.ButtonSet.OK);
+        return;
+    }
+
+    const values = sourceSheet.getDataRange().getValues();
+    if (rowNum - 1 >= values.length || rowNum < startRow) {
+        ui.alert("Lỗi", `Hàng ${rowNum} không có dữ liệu.`, ui.ButtonSet.OK);
+        return;
+    }
+    const row = values[rowNum - 1];
+    const employeeName = String(row[columnLetterToIndex(settings.MAP.HOTEN)] || ("NV_" + rowNum));
+
+    const tempSS = SpreadsheetApp.create(`Temp_Payroll_Test_${new Date().getTime()}`);
+    tempSS.getSheets()[0].setName("DUMMY"); // không hide sheet duy nhất (sẽ lỗi "can't hide all sheets")
+    try {
+        const pdfBlob = renderEmployeePdf(templateSheet, tempSS, row, settings, payrollMonthYear, rowNum, employeeName);
+        MailApp.sendEmail({
+            to: testEmail,
+            subject: `[THỬ] ${settings.EMAIL_SUBJECT_PREFIX} ${payrollMonthYear} - ${employeeName}`,
+            body: `Đây là BẢN GỬI THỬ phiếu lương của "${employeeName}" (hàng ${rowNum}).\n` +
+                  `Không gửi cho nhân viên, không ghi nhận trạng thái.\n\nKiểm tra layout PDF đính kèm rồi gửi thật khi đã ổn.`,
+            attachments: [pdfBlob]
+        });
+        ui.alert("Đã gửi thử", `Đã gửi bản thử phiếu của "${employeeName}" tới ${testEmail}.`, ui.ButtonSet.OK);
+    } catch (err) {
+        ui.alert("Lỗi gửi thử", err.message, ui.ButtonSet.OK);
+    } finally {
+        DriveApp.getFileById(tempSS.getId()).setTrashed(true);
+    }
+}
+
+// =============================================================================
+//  CORE
+// =============================================================================
+
+/**
+ * Vòng xử lý chính. Dùng cho cả gửi mới lẫn resume (gọi từ trigger).
+ * Khóa tài liệu (LockService) để tránh chạy chồng (manual + trigger) gây gửi trùng phiếu.
+ */
+function processPayroll() {
+    const settings = getSettings();
+    const { month, year } = getTargetMonth();
+    const payrollMonthYear = `Tháng ${month}/${year}`;
+    const sheetName = settings.SHEET_NAME_PREFIX + month;
 
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sourceSheet = ss.getSheetByName(sheetName);
     const templateSheet = ss.getSheetByName(settings.TEMPLATE_SHEET_NAME);
 
     if (!sourceSheet || !templateSheet) {
-        SpreadsheetApp.getUi().alert("Lỗi", `Cần có sheet "${sheetName}" và "${settings.TEMPLATE_SHEET_NAME}".`, SpreadsheetApp.getUi().ButtonSet.OK);
+        safeAlert("Lỗi", `Cần có tab "${sheetName}" và "${settings.TEMPLATE_SHEET_NAME}".`);
         return;
     }
 
-    const startRow = settings.START_ROW;
-    const lastRow = sourceSheet.getLastRow();
+    // Chống chạy chồng: nếu một tiến trình gửi lương khác đang chạy, LÊN LỊCH THỬ LẠI
+    // (không bỏ luôn — nếu không, phần nhân viên còn lại có thể không bao giờ được gửi).
+    const lock = LockService.getDocumentLock();
+    if (!lock.tryLock(2000)) {
+        console.warn("Một tiến trình gửi lương khác đang chạy — lên lịch chạy lại sau ~1 phút.");
+        createResumeTrigger();
+        safeAlert("Đang bận", "Có một tiến trình gửi lương khác đang chạy. Hệ thống sẽ tự thử lại sau khoảng 1 phút.");
+        return;
+    }
+
+    const startTime = Date.now();
+    const startRow = Number(settings.START_ROW) || 2;
+    const minQuota = Number(settings.MIN_QUOTA) || 10;
     const values = sourceSheet.getDataRange().getValues();
     const statusColIdx = columnLetterToIndex(settings.MAP.SENT_STATUS);
+    const emailIdx = columnLetterToIndex(settings.MAP.EMAIL);
+
+    // Đếm SỐ NHÂN VIÊN CÓ EMAIL hợp lệ (không tính hàng trống)
+    let totalEligible = 0;
+    for (let i = startRow - 1; i < values.length; i++) {
+        const e = values[i][emailIdx];
+        if (e && String(e).includes('@')) totalEligible++;
+    }
 
     const stats = {
-        total: values.length - (startRow - 1),
+        total: totalEligible,
         success: 0,
         failed: [],
         skipped: 0,
@@ -89,168 +256,320 @@ function sendMonthlyPayrollEmails_WithPDF() {
         monthYear: payrollMonthYear
     };
 
-    // Tạo Spreadsheet tạm
-    const tempSS = SpreadsheetApp.create(`Temp_Payroll_Resilient_${new Date().getTime()}`);
-    const defaultSheet = tempSS.getSheets()[0];
-    defaultSheet.setName("DUMMY");
-    defaultSheet.hideSheet();
+    // Thư mục Drive cho kỳ lương (tạo lười khi cần)
+    let monthFolder = null;
+    if (settings.SAVE_TO_DRIVE) {
+        try {
+            monthFolder = getMonthFolder(settings, month, year);
+        } catch (e) {
+            console.error("Không tạo được thư mục Drive: " + e.message);
+        }
+    }
+
+    // Tạo spreadsheet tạm TRONG try để chắc chắn lock luôn được nhả và file tạm luôn được dọn nếu lỗi.
+    let tempSS = null;
 
     try {
+        tempSS = SpreadsheetApp.create(`Temp_Payroll_Resilient_${new Date().getTime()}`);
+        // KHÔNG hide sheet "DUMMY": hide sheet hiển-thị DUY NHẤT sẽ ném lỗi "You can't hide all the sheets".
+        tempSS.getSheets()[0].setName("DUMMY");
         for (let i = startRow - 1; i < values.length; i++) {
             const row = values[i];
             const currentRowNum = i + 1;
             const currentStatus = row[statusColIdx];
 
-            // 1. Kiểm tra trạng thái đã gửi chưa
+            // 1. Bỏ qua hàng đã gửi thành công
             if (currentStatus === "Thành công") {
                 stats.skipped++;
                 continue;
             }
 
             // 2. Kiểm tra Quota Gmail
-            if (MailApp.getRemainingDailyQuota() < settings.MIN_QUOTA) {
+            if (MailApp.getRemainingDailyQuota() < minQuota) {
                 console.warn("Hết hạn mức Quota Gmail.");
                 sendSummaryEmail(stats, "TẠM DỪNG (Hết Quota Gmail)");
                 deleteResumeTrigger();
+                safeAlert("Tạm dừng", "Đã hết hạn mức gửi email trong ngày của Gmail. Hãy chạy lại vào ngày mai.");
                 return;
             }
 
-            // 3. Kiểm tra Thời gian thực thi (Resilience)
+            // 3. Kiểm tra thời gian thực thi -> tạo trigger chạy tiếp
             if (Date.now() - startTime > settings.MAX_RUNTIME_MS) {
-                console.log("Sắp hết thời gian thực thi. Đang khởi tạo cơ chế Resume tự động...");
+                console.log("Sắp hết thời gian thực thi. Khởi tạo cơ chế Resume tự động...");
                 stats.isResuming = true;
                 createResumeTrigger();
                 sendSummaryEmail(stats, "TẠM DỪNG (Đang chạy tiếp...)");
-                SpreadsheetApp.getUi().alert("Đang tạm dừng", "Script đã chạy gần 5 phút. Hệ thống sẽ tự động chạy tiếp phần còn lại sau 1 phút nữa và đã gửi báo cáo tạm thời cho bạn.", SpreadsheetApp.getUi().ButtonSet.OK);
+                // safeAlert: nếu đang trong trigger sẽ tự bỏ qua, không crash
+                safeAlert("Đang tạm dừng", "Script đã chạy gần 5 phút. Hệ thống sẽ tự động chạy tiếp phần còn lại sau ~1 phút và đã gửi báo cáo tạm thời cho bạn.");
                 return;
             }
 
-            const recipientEmail = row[columnLetterToIndex(settings.MAP.EMAIL)];
-            const employeeName = row[columnLetterToIndex(settings.MAP.HOTEN)];
+            const recipientEmail = row[emailIdx];
+            const employeeName = String(row[columnLetterToIndex(settings.MAP.HOTEN)] || ("NV_" + currentRowNum));
 
             if (!recipientEmail || !String(recipientEmail).includes('@')) continue;
 
             try {
-                // Render và gửi (Sử dụng cơ chế đã tối ưu v1.1)
-                const currentTempSheet = templateSheet.copyTo(tempSS);
-                currentTempSheet.setName(employeeName.substring(0, 30) + "_" + currentRowNum);
+                const pdfBlob = renderEmployeePdf(templateSheet, tempSS, row, settings, payrollMonthYear, currentRowNum, employeeName);
 
-                const replacements = {
-                    "{{THANGNAM}}": payrollMonthYear,
-                    "{{SENDER_NAME}}": settings.SENDER_NAME,
-                    "{{SENDER_ADDRESS}}": settings.SENDER_ADDRESS,
-                    "{{SENDER_HOTLINE}}": settings.SENDER_HOTLINE,
-                    "{{CONTACT_EMAIL}}": settings.CONTACT_EMAIL
-                };
-
-                for (const key in settings.MAP) {
-                    let val = row[columnLetterToIndex(settings.MAP[key])];
-                    if (key.startsWith("L_") || key.startsWith("PC_") ||
-                        ["THUONG", "TRU_CHIU_THUE", "TRU_KG_CHIU_THUE", "TONGLUONG", "BHXH", "THUETNCN", "THUCLINH", "PHAT", "TAMUNG", "DANHAN", "LUONGCK"].includes(key)) {
-                        val = (val === null || val === undefined || val === "" || isNaN(parseFloat(val))) ? "0" : new Intl.NumberFormat('vi-VN').format(parseFloat(val));
+                // Lưu Drive (tùy chọn)
+                let driveUrl = "";
+                let secureLinkReady = false; // chỉ true khi đã chia sẻ riêng cho NV thành công
+                if (monthFolder) {
+                    const file = monthFolder.createFile(pdfBlob);
+                    driveUrl = file.getUrl();
+                    if (settings.SECURE_SHARE) {
+                        try {
+                            file.setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE);
+                            file.addViewer(String(recipientEmail).trim());
+                            secureLinkReady = true;
+                        } catch (shareErr) {
+                            console.warn(`Không chia sẻ riêng được cho ${employeeName}: ${shareErr.message}. Sẽ đính kèm PDF thay thế.`);
+                        }
                     }
-                    replacements[`{{${key}}}`] = val;
                 }
 
-                for (const tag in replacements) {
-                    currentTempSheet.createTextFinder(tag).replaceAllWith(String(replacements[tag]));
+                // Soạn email
+                const attachments = settings.ATTACH_PDF_TO_EMAIL ? [pdfBlob] : [];
+                // An toàn: nếu không đính kèm VÀ không có link an toàn -> ép đính kèm để NV luôn nhận được phiếu
+                if (attachments.length === 0 && !secureLinkReady) {
+                    attachments.push(pdfBlob);
                 }
 
-                SpreadsheetApp.flush();
-                const allSheets = tempSS.getSheets();
-                allSheets.forEach(s => { if (s.getName() !== currentTempSheet.getName()) s.hideSheet(); });
-                const pdfBlob = tempSS.getAs('application/pdf').setName(`${settings.PDF_FILE_NAME_PREFIX}_${employeeName.replace(/\s+/g, '_')}.pdf`);
-                allSheets.forEach(s => { if (s !== currentTempSheet && s.getName() !== "DUMMY") s.showSheet(); });
+                let body = `Kính gửi anh/chị ${employeeName},\n\n`;
+                body += `Phiếu lương ${payrollMonthYear} của anh/chị đã sẵn sàng.\n`;
+                if (attachments.length > 0) body += `Vui lòng xem file PDF đính kèm.\n`;
+                if (secureLinkReady) {
+                    body += `\nXem/tải phiếu lương (chỉ riêng anh/chị truy cập được):\n${driveUrl}\n`;
+                }
+                body += `\nMọi thắc mắc xin liên hệ ${settings.CONTACT_EMAIL} | Hotline: ${settings.SENDER_HOTLINE}.\n\n`;
+                body += `Trân trọng,\n${settings.SENDER_NAME}`;
 
                 MailApp.sendEmail({
                     to: String(recipientEmail).trim(),
                     subject: `${settings.EMAIL_SUBJECT_PREFIX} ${payrollMonthYear} - ${employeeName}`,
-                    body: `Kính gửi anh/chị ${employeeName},\n\nMẫu phiếu lương chi tiết đính kèm.\n\nTrân trọng.`,
-                    attachments: [pdfBlob]
+                    body: body,
+                    attachments: attachments
                 });
 
-                // CẬP NHẬT TRẠNG THÁI NGAY LẬP TỨC
+                // Cập nhật trạng thái ngay
                 sourceSheet.getRange(currentRowNum, statusColIdx + 1).setValue("Thành công").setBackground("#d9ead3");
-                tempSS.deleteSheet(currentTempSheet);
+                logToSheet(ss, settings, {
+                    monthYear: payrollMonthYear, row: currentRowNum, name: employeeName,
+                    email: recipientEmail, status: "Thành công", url: driveUrl
+                });
                 stats.success++;
             } catch (err) {
                 console.error(`Lỗi tại hàng ${currentRowNum}: ${err.message}`);
                 sourceSheet.getRange(currentRowNum, statusColIdx + 1).setValue("Lỗi: " + err.message).setBackground("#f4cccc");
+                logToSheet(ss, settings, {
+                    monthYear: payrollMonthYear, row: currentRowNum, name: employeeName,
+                    email: recipientEmail, status: "Lỗi: " + err.message, url: ""
+                });
                 stats.failed.push({ name: employeeName, row: currentRowNum, error: err.message });
             }
         }
 
         // Hoàn tất toàn bộ
         deleteResumeTrigger();
+        clearTargetMonth();
         sendSummaryEmail(stats, "HOÀN TẤT");
-        SpreadsheetApp.getUi().alert("Hoàn tất", `Đã gửi thành công ${stats.success} email. Vui lòng kiểm tra email của bạn để xem báo cáo chi tiết.`, SpreadsheetApp.getUi().ButtonSet.OK);
+        safeAlert("Hoàn tất", `Đã gửi thành công ${stats.success} email (bỏ qua ${stats.skipped} đã gửi trước). Vui lòng kiểm tra email báo cáo chi tiết.`);
 
     } finally {
-        if (tempSS) DriveApp.getFileById(tempSS.getId()).setTrashed(true);
+        if (tempSS) {
+            try { DriveApp.getFileById(tempSS.getId()).setTrashed(true); }
+            catch (e) { console.warn("Không xóa được file tạm: " + e.message); }
+        }
+        lock.releaseLock();
     }
 }
 
 /**
- * Tạo Trigger để chạy lại script sau 1 phút.
+ * Render mẫu TEMPLATE với dữ liệu 1 nhân viên -> trả về blob PDF.
+ * Tự dọn sheet tạm sau khi xuất.
  */
+function renderEmployeePdf(templateSheet, tempSS, row, settings, payrollMonthYear, rowNum, employeeName) {
+    const tempSheet = templateSheet.copyTo(tempSS);
+    const safeName = employeeName.substring(0, 25).replace(/[^\w\sÀ-ỹ]/g, '').trim() || ("NV_" + rowNum);
+    tempSheet.setName(safeName + "_" + rowNum);
+
+    const replacements = {
+        "{{THANGNAM}}": payrollMonthYear,
+        "{{SENDER_NAME}}": settings.SENDER_NAME,
+        "{{SENDER_ADDRESS}}": settings.SENDER_ADDRESS,
+        "{{SENDER_HOTLINE}}": settings.SENDER_HOTLINE,
+        "{{CONTACT_EMAIL}}": settings.CONTACT_EMAIL
+    };
+
+    const MONEY_KEYS = ["THUONG", "TRU_CHIU_THUE", "TRU_KG_CHIU_THUE", "TONGLUONG", "BHXH",
+        "THUETNCN", "THUCLINH", "PHAT", "TAMUNG", "DANHAN", "LUONGCK"];
+    const moneyFmt = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 });
+
+    for (const key in settings.MAP) {
+        let val = row[columnLetterToIndex(settings.MAP[key])];
+        if (key.startsWith("L_") || key.startsWith("PC_") || MONEY_KEYS.includes(key)) {
+            if (val === null || val === undefined || val === "") {
+                val = "0";
+            } else if (typeof val === 'number') {
+                val = moneyFmt.format(Math.round(val)); // tiền VND: làm tròn, bỏ phần thập phân
+            } else {
+                // Ô tiền dạng TEXT: giữ nguyên thay vì parseFloat — parseFloat("1,234,567") = 1 sẽ ra số sai
+                val = String(val);
+            }
+        }
+        replacements[`{{${key}}}`] = val;
+    }
+
+    for (const tag in replacements) {
+        tempSheet.createTextFinder(tag).replaceAllWith(String(replacements[tag]));
+    }
+
+    SpreadsheetApp.flush();
+
+    // Ẩn mọi sheet khác để PDF chỉ chứa phiếu của nhân viên này.
+    // tempSheet vẫn hiển thị nên không vi phạm quy tắc "không được ẩn hết sheet".
+    const others = tempSS.getSheets().filter(s => s.getName() !== tempSheet.getName());
+    let blob;
+    try {
+        others.forEach(s => s.hideSheet());
+        blob = tempSS.getAs('application/pdf')
+            .setName(`${settings.PDF_FILE_NAME_PREFIX}_${employeeName.replace(/\s+/g, '_')}_${payrollMonthYear.replace(/[\/\s]+/g, '-')}.pdf`);
+    } finally {
+        // Luôn hiện lại sheet nền (kể cả khi getAs lỗi) để không kẹt ở trạng thái ẩn hết sheet
+        others.forEach(s => s.showSheet());
+        tempSS.deleteSheet(tempSheet);
+    }
+    return blob;
+}
+
+// =============================================================================
+//  DRIVE
+// =============================================================================
+
+/**
+ * Lấy/ tạo thư mục kỳ lương: ROOT / "Năm YYYY" / "Tháng MM-YYYY".
+ * Mỗi nhân viên = 1 file PDF trong thư mục tháng (tên file gồm tên NV).
+ */
+function getMonthFolder(settings, month, year) {
+    let root = null;
+    if (settings.DRIVE_ROOT_FOLDER_ID) {
+        try { root = DriveApp.getFolderById(String(settings.DRIVE_ROOT_FOLDER_ID).trim()); }
+        catch (e) { root = null; }
+    }
+    if (!root) {
+        root = getOrCreateChildFolder(DriveApp.getRootFolder(), settings.DRIVE_ROOT_FOLDER_NAME);
+    }
+    const yearFolder = getOrCreateChildFolder(root, "Năm " + year);
+    const mm = ("0" + month).slice(-2);
+    return getOrCreateChildFolder(yearFolder, "Tháng " + mm + "-" + year);
+}
+
+function getOrCreateChildFolder(parent, name) {
+    const it = parent.getFoldersByName(name);
+    return it.hasNext() ? it.next() : parent.createFolder(name);
+}
+
+// =============================================================================
+//  TRIGGER / TRẠNG THÁI THÁNG
+// =============================================================================
+
 function createResumeTrigger() {
-    deleteResumeTrigger(); // Xóa cái cũ nếu có
-    ScriptApp.newTrigger("sendMonthlyPayrollEmails_WithPDF")
+    deleteResumeTrigger();
+    ScriptApp.newTrigger("resumePayroll")
         .timeBased()
         .after(1 * 60 * 1000)
         .create();
 }
 
-/**
- * Xóa tất cả Trigger liên quan đến hàm gửi lương để tránh chạy lặp.
- */
 function deleteResumeTrigger() {
+    // CHỈ xóa trigger resume tự tạo. KHÔNG đụng tới trigger định kỳ mà người dùng có thể đã
+    // tự đặt cho sendMonthlyPayrollEmails_WithPDF (vd auto-gửi hằng tháng).
     const triggers = ScriptApp.getProjectTriggers();
     triggers.forEach(t => {
-        if (t.getHandlerFunction() === "sendMonthlyPayrollEmails_WithPDF") {
+        if (t.getHandlerFunction() === "resumePayroll") {
             ScriptApp.deleteTrigger(t);
         }
     });
 }
 
+function setTargetMonth(month, year) {
+    PropertiesService.getDocumentProperties().setProperties({
+        PAYROLL_MONTH: String(month),
+        PAYROLL_YEAR: String(year)
+    });
+}
+
+function getTargetMonth() {
+    const p = PropertiesService.getDocumentProperties();
+    const now = new Date();
+    const m = p.getProperty('PAYROLL_MONTH');
+    const y = p.getProperty('PAYROLL_YEAR');
+    return {
+        month: m ? Number(m) : (now.getMonth() + 1),
+        year: y ? Number(y) : now.getFullYear()
+    };
+}
+
+function clearTargetMonth() {
+    const p = PropertiesService.getDocumentProperties();
+    p.deleteProperty('PAYROLL_MONTH');
+    p.deleteProperty('PAYROLL_YEAR');
+}
+
 /**
- * Xóa trạng thái gửi để có thể gửi lại từ đầu.
+ * Xóa trạng thái gửi của THÁNG ĐÍCH để gửi lại từ đầu.
  */
 function resetSentStatus() {
     const settings = getSettings();
-    const currentMonth = new Date().getMonth() + 1;
-    const sheetName = settings.SHEET_NAME_PREFIX + currentMonth;
+    const { month } = getTargetMonth();
+    const sheetName = settings.SHEET_NAME_PREFIX + month;
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName(sheetName);
 
     if (sheet) {
         const lastRow = sheet.getLastRow();
-        const startRow = settings.START_ROW;
+        const startRow = Number(settings.START_ROW) || 2;
         if (lastRow >= startRow) {
             const statusColIdx = columnLetterToIndex(settings.MAP.SENT_STATUS);
             sheet.getRange(startRow, statusColIdx + 1, lastRow - startRow + 1, 1).clearContent().setBackground(null);
-            SpreadsheetApp.getUi().alert("Đã Reset", "Đã xóa trạng thái gửi của tháng hiện tại.", SpreadsheetApp.getUi().ButtonSet.OK);
+            SpreadsheetApp.getUi().alert("Đã Reset", `Đã xóa trạng thái gửi của tab "${sheetName}".`, SpreadsheetApp.getUi().ButtonSet.OK);
         }
+    } else {
+        SpreadsheetApp.getUi().alert("Lỗi", `Không tìm thấy tab "${sheetName}".`, SpreadsheetApp.getUi().ButtonSet.OK);
     }
 }
 
+// =============================================================================
+//  CONFIG / LOG / TIỆN ÍCH
+// =============================================================================
+
 /**
- * Hàm lấy cấu hình từ tab "CONFIG" hoặc từ GLOBAL_CONFIG.
+ * Lấy cấu hình: GLOBAL_CONFIG hợp nhất với tab "CONFIG" (nếu có).
+ * Tab CONFIG: cột A = THAM SỐ, cột B = GIÁ TRỊ.
+ *   - Key thường (vd SENDER_NAME, START_ROW, SAVE_TO_DRIVE) ghi đè trực tiếp.
+ *   - Key dạng "MAP.HOTEN", "MAP.EMAIL"... ghi đè cột trong MAP.
  */
 function getSettings() {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const configSheet = ss.getSheetByName("CONFIG");
-    let settings = { ...GLOBAL_CONFIG };
+    // Deep-copy MAP để không sửa GLOBAL_CONFIG gốc
+    const settings = { ...GLOBAL_CONFIG, MAP: { ...GLOBAL_CONFIG.MAP } };
 
     if (configSheet) {
         const data = configSheet.getDataRange().getValues();
-        // Giả định Tab CONFIG có dạng: Cột A là Key, Cột B là Value
         for (let i = 0; i < data.length; i++) {
-            const key = String(data[i][0]).trim().toUpperCase();
+            const rawKey = String(data[i][0]).trim();
             const value = data[i][1];
-            if (key && value !== undefined && value !== "") {
+            if (!rawKey || value === undefined || value === "") continue;
+
+            if (rawKey.toUpperCase().startsWith("MAP.")) {
+                const sub = rawKey.substring(4).toUpperCase();
+                settings.MAP[sub] = String(value).trim();
+            } else {
+                const key = rawKey.toUpperCase();
                 if (settings.hasOwnProperty(key)) {
-                    settings[key] = value;
+                    settings[key] = coerceValue(value);
                 }
             }
         }
@@ -259,10 +578,58 @@ function getSettings() {
 }
 
 /**
- * Hàm tiện ích chuyển đổi tên cột dạng chữ (A, B, AA, CL) sang chỉ số 0-based.
+ * Ép kiểu giá trị đọc từ CONFIG: boolean / number / string.
+ */
+function coerceValue(v) {
+    if (typeof v === 'boolean') return v;
+    if (typeof v === 'number') return v;
+    const s = String(v).trim();
+    if (/^(true|có|yes|bật)$/i.test(s)) return true;
+    if (/^(false|không|no|tắt)$/i.test(s)) return false;
+    // Chỉ ép số khi toàn ký tự số (tránh phá ID thư mục Drive, tiền tố...)
+    if (s !== "" && /^-?\d+$/.test(s)) return Number(s);
+    return v;
+}
+
+/**
+ * Ghi nhật ký gửi vào tab LOG (tạo nếu chưa có).
+ */
+function logToSheet(ss, settings, entry) {
+    if (!settings.ENABLE_LOG) return;
+    try {
+        let sheet = ss.getSheetByName(settings.LOG_SHEET_NAME);
+        if (!sheet) {
+            sheet = ss.insertSheet(settings.LOG_SHEET_NAME);
+            sheet.appendRow(["Thời gian", "Kỳ lương", "Hàng", "Họ tên", "Email", "Trạng thái", "Link Drive"]);
+            sheet.getRange(1, 1, 1, 7).setFontWeight("bold").setBackground("#cfe2f3");
+            sheet.setFrozenRows(1);
+        }
+        sheet.appendRow([
+            new Date(), entry.monthYear, entry.row, entry.name,
+            String(entry.email || ""), entry.status, entry.url || ""
+        ]);
+    } catch (e) {
+        console.error("Không ghi được LOG: " + e.message);
+    }
+}
+
+/**
+ * Alert an toàn: nếu đang chạy trong trigger (không có UI) thì chỉ log, không ném lỗi.
+ */
+function safeAlert(title, message) {
+    try {
+        const ui = SpreadsheetApp.getUi();
+        ui.alert(title, message, ui.ButtonSet.OK);
+    } catch (e) {
+        console.log(`[THÔNG BÁO] ${title}: ${message}`);
+    }
+}
+
+/**
+ * Chuyển tên cột (A, B, AA, CL) -> chỉ số 0-based.
  */
 function columnLetterToIndex(columnLetter) {
-    columnLetter = columnLetter.toUpperCase();
+    columnLetter = String(columnLetter).toUpperCase();
     let column = 0;
     for (let i = 0; i < columnLetter.length; i++) {
         column *= 26;
@@ -271,27 +638,16 @@ function columnLetterToIndex(columnLetter) {
     return column - 1;
 }
 
-/**
- * Hàm tiện ích chuyển đổi chỉ số cột 0-based sang tên cột dạng chữ.
- */
-function columnNumberToLetter(column) {
-    let temp, letter = '';
-    while (column >= 0) {
-        temp = column % 26;
-        letter = String.fromCharCode(temp + 65) + letter;
-        column = Math.floor(column / 26) - 1;
-    }
-    return letter;
-}
+// =============================================================================
+//  MENU
+// =============================================================================
 
-
-/**
- * Hàm tạo menu tùy chỉnh trong Google Sheet để dễ dàng chạy script.
- */
 function onOpen() {
-    const ui = SpreadsheetApp.getUi();
-    ui.createMenu('SME Tools')
-        .addItem('Gửi Phiếu Lương PDF (Tháng Hiện Tại)', 'sendMonthlyPayrollEmails_WithPDF')
+    SpreadsheetApp.getUi()
+        .createMenu('SME Tools')
+        .addItem('Gửi Phiếu Lương (Tháng Hiện Tại)', 'sendMonthlyPayrollEmails_WithPDF')
+        .addItem('Gửi Phiếu Lương (Chọn Tháng...)', 'sendPayrollForSelectedMonth')
+        .addItem('Gửi THỬ về email tôi...', 'sendTestPayslip')
         .addItem('Xóa trạng thái gửi (Reset)', 'resetSentStatus')
         .addSeparator()
         .addItem('Tạo Sheet Mẫu (TEMPLATE)', 'createSampleTemplate')
@@ -299,9 +655,10 @@ function onOpen() {
         .addToUi();
 }
 
-/**
- * Hàm tự động tạo Sheet TEMPLATE với thiết kế chuyên nghiệp và các thẻ Tag chuẩn.
- */
+// =============================================================================
+//  TẠO SHEET MẪU TEMPLATE
+// =============================================================================
+
 function createSampleTemplate() {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheetName = GLOBAL_CONFIG.TEMPLATE_SHEET_NAME;
@@ -315,41 +672,33 @@ function createSampleTemplate() {
     }
 
     sheet = ss.insertSheet(sheetName);
-    sheet.setHideGridlines(true); // Ẩn đường lưới cho PDF sạch sẽ
+    sheet.setHideGridlines(true);
 
-    // --- Thiết kế Giao diện Tối ưu A4 ---
-    // 1. Cấu hình cột (Tổng ~700px để vừa khít A4 Portrait)
-    sheet.setColumnWidth(1, 300); // Cột nhãn
-    sheet.setColumnWidth(2, 200); // Cột giá trị 1
-    sheet.setColumnWidth(3, 200); // Cột giá trị 2
+    sheet.setColumnWidth(1, 300);
+    sheet.setColumnWidth(2, 200);
+    sheet.setColumnWidth(3, 200);
 
-    // Cấu hình độ cao hàng mặc định và căn lề giữa dọc
     sheet.getRange("A1:C100").setVerticalAlignment("middle");
     sheet.setRowHeights(1, 100, 28);
 
-    // 2. Tiêu đề Công ty
     sheet.setRowHeight(1, 35);
     sheet.getRange("A1:C1").merge().setValue("{{SENDER_NAME}}").setFontWeight("bold").setFontSize(14).setHorizontalAlignment("center");
     sheet.getRange("A2:C2").merge().setValue("{{SENDER_ADDRESS}}").setFontSize(9).setHorizontalAlignment("center");
     sheet.getRange("A3:C3").merge().setValue("Hotline: {{SENDER_HOTLINE}} | Email: {{CONTACT_EMAIL}}").setFontSize(9).setHorizontalAlignment("center");
 
-    // 3. Tiêu đề Phiếu Lương
     sheet.setRowHeight(5, 40);
     sheet.getRange("A5:C5").merge().setValue("PHIẾU LƯƠNG {{THANGNAM}}").setFontWeight("bold").setFontSize(16).setHorizontalAlignment("center").setBackground("#f0f0f0");
 
-    // 4. Khối thông tin nhân viên
     sheet.getRange("A7").setValue("THÔNG TIN NHÂN VIÊN").setFontWeight("bold").setBackground("#e0e0e0");
     sheet.getRange("A8").setValue("Họ và tên:"); sheet.getRange("B8:C8").merge().setValue("{{HOTEN}}").setFontWeight("bold");
     sheet.getRange("A9").setValue("Vị trí:"); sheet.getRange("B9:C9").merge().setValue("{{VITRI}}");
     sheet.getRange("A10").setValue("Tài khoản nhận:"); sheet.getRange("B10:C10").merge().setValue("{{STK}} ({{NGANHANG}})");
 
-    // 5. Khối Chi tiết công xá
     sheet.getRange("A12").setValue("CHI TIẾT CÔNG XÁ").setFontWeight("bold").setBackground("#e0e0e0");
     sheet.getRange("A13").setValue("Công chuẩn / Thực tế:"); sheet.getRange("B13").setValue("{{NGAYCONGCHUAN}}"); sheet.getRange("C13").setValue("{{TONGGIOTT}} giờ");
     sheet.getRange("A14").setValue("Tăng ca (150%/200%/300%):"); sheet.getRange("B14:C14").merge().setValue("{{GIO150}} / {{GIO200}} / {{GIO300}}");
     sheet.getRange("A15").setValue("Nghỉ (Ro/N/P/L):"); sheet.getRange("B15:C15").merge().setValue("{{RO}} / {{N}} / {{P}} / {{L}}");
 
-    // 6. Khối Thu nhập
     sheet.getRange("A17").setValue("CHI TIẾT THU NHẬP").setFontWeight("bold").setBackground("#e0e0e0");
     const incomeTags = [
         ["Lương cơ bản (HĐ)", "{{L_COBAN}}"],
@@ -368,13 +717,11 @@ function createSampleTemplate() {
         row++;
     });
 
-    // 7. Khối Khấu trừ
     row++;
     sheet.getRange(row, 1).setValue("GIẢM TRỪ & KHẤU TRỪ").setFontWeight("bold").setBackground("#e0e0e0"); row++;
     sheet.getRange(row, 1).setValue("BHXH / Thuế TNCN:"); sheet.getRange(row, 2, 1, 2).merge().setValue("{{BHXH}} / {{THUETNCN}}").setHorizontalAlignment("right"); row++;
     sheet.getRange(row, 1).setValue("THỰC LĨNH").setFontWeight("bold"); sheet.getRange(row, 2, 1, 2).merge().setValue("{{THUCLINH}}").setFontWeight("bold").setHorizontalAlignment("right"); row++;
 
-    // 8. Khối Thanh toán
     row++;
     sheet.getRange(row, 1).setValue("THANH TOÁN CUỐI CÙNG").setFontWeight("bold").setBackground("#d9ead3"); row++;
     sheet.getRange(row, 1).setValue("Tạm ứng / Đã quyết toán:"); sheet.getRange(row, 2, 1, 2).merge().setValue("{{TAMUNG}} / {{DANHAN}}").setHorizontalAlignment("right"); row++;
@@ -382,56 +729,16 @@ function createSampleTemplate() {
     sheet.getRange(row, 1).setValue("SỐ TIỀN CHUYỂN KHOẢN").setFontWeight("bold").setFontSize(12);
     sheet.getRange(row, 2, 1, 2).merge().setValue("{{LUONGCK}} VND").setFontWeight("bold").setFontSize(12).setHorizontalAlignment("right").setBackground("#fff2cc");
 
-    // Border toàn bộ vùng nội dung
     sheet.getRange("A7:C" + row).setBorder(true, true, true, true, true, true, "#cccccc", SpreadsheetApp.BorderStyle.SOLID);
-
-    // Format hiển thị cho người dùng
     sheet.getRange("A1:C" + row).setFontFamily("Roboto");
 
     SpreadsheetApp.getUi().alert("Thành công", `Đã tạo xong sheet "${sheetName}". Bạn có thể tùy chỉnh thêm font chữ hoặc logo nếu muốn.`, SpreadsheetApp.getUi().ButtonSet.OK);
 }
 
-/**
- * Gửi email báo cáo tóm tắt cho người vận hành.
- */
-function sendSummaryEmail(stats, statusMessage) {
-    const userEmail = Session.getActiveUser().getEmail();
-    const subject = `[BÁO CÁO] Kết quả gửi lương ${stats.monthYear} - ${statusMessage}`;
+// =============================================================================
+//  TẠO SHEET CONFIG (đã mở rộng — đổi được cả mapping cột, Drive, bảo mật)
+// =============================================================================
 
-    let body = `Chào bạn,\n\nHệ thống SME Scripts gửi báo cáo kết quả thực hiện gửi phiếu lương:\n\n`;
-    body += `--------------------------------------------------\n`;
-    body += `Trạng thái: ${statusMessage}\n`;
-    body += `Tổng số nhân viên trong danh sách: ${stats.total}\n`;
-    body += `Số ca đã hoàn tất thành công: ${stats.success + stats.skipped}\n`;
-    body += `  - Mới thành công: ${stats.success}\n`;
-    body += `  - Đã xong từ trước (bỏ qua): ${stats.skipped}\n`;
-    body += `Số ca thất bại: ${stats.failed.length}\n`;
-    body += `--------------------------------------------------\n\n`;
-
-    if (stats.failed.length > 0) {
-        body += `DANH SÁCH CÁC TRƯỜNG HỢP LỖI:\n`;
-        stats.failed.forEach(item => {
-            body += `- Hàng ${item.row} | ${item.name}: ${item.error}\n`;
-        });
-        body += `\nVui lòng kiểm tra lại dữ liệu tại các hàng trên và bấm "Gửi lại" sau khi sửa lỗi.\n\n`;
-    }
-
-    if (stats.isResuming) {
-        body += `\nLƯU Ý: Script đã chạm giới hạn thời gian và đang chạy tiếp phần còn lại. Bạn sẽ nhận được báo cáo cuối cùng sau khi hoàn tất.\n`;
-    }
-
-    body += `\nTrân trọng,\nSME Solutions AI Assistant.`;
-
-    try {
-        MailApp.sendEmail(userEmail, subject, body);
-    } catch (e) {
-        console.error("Không thể gửi email báo cáo: " + e.message);
-    }
-}
-
-/**
- * Hàm tạo tab CONFIG giúp người dùng cấu hình không cần sửa code.
- */
 function createConfigSheet() {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheetName = "CONFIG";
@@ -446,31 +753,63 @@ function createConfigSheet() {
 
     sheet = ss.insertSheet(sheetName);
 
-    // Header
     const header = [["THAM SỐ", "GIÁ TRỊ", "MÔ TẢ / GIẢI THÍCH"]];
     sheet.getRange(1, 1, 1, 3).setValues(header).setFontWeight("bold").setBackground("#cfe2f3");
 
-    // Dữ liệu từ GLOBAL_CONFIG
-    const configData = [
-        ["SENDER_NAME", GLOBAL_CONFIG.SENDER_NAME, "Tên công ty xuất hiện trên tiêu đề phiếu lương"],
+    const rows = [
+        ["--- THÔNG TIN CÔNG TY ---", "", ""],
+        ["SENDER_NAME", GLOBAL_CONFIG.SENDER_NAME, "Tên công ty hiển thị trên phiếu lương"],
         ["SENDER_ADDRESS", GLOBAL_CONFIG.SENDER_ADDRESS, "Địa chỉ công ty"],
         ["SENDER_HOTLINE", GLOBAL_CONFIG.SENDER_HOTLINE, "Hotline hỗ trợ"],
-        ["CONTACT_EMAIL", GLOBAL_CONFIG.CONTACT_EMAIL, "Email hiển thị trên phiếu lương để nhân viên liên hệ khi cần (không phải email dùng để gửi)"],
-        ["SHEET_NAME_PREFIX", GLOBAL_CONFIG.SHEET_NAME_PREFIX, "Tiền tố của tab tháng (Vd: T thì tab là T1, T2...)"],
-        ["EMAIL_SUBJECT_PREFIX", GLOBAL_CONFIG.EMAIL_SUBJECT_PREFIX, "Tiền tố tiêu đề Email gửi đi"],
-        ["PDF_FILE_NAME_PREFIX", GLOBAL_CONFIG.PDF_FILE_NAME_PREFIX, "Tiền tố tên file PDF đính kèm"],
+        ["CONTACT_EMAIL", GLOBAL_CONFIG.CONTACT_EMAIL, "Email liên hệ hiển thị cho nhân viên (KHÔNG phải email gửi đi)"],
+
+        ["--- CẤU TRÚC DỮ LIỆU ---", "", ""],
+        ["SHEET_NAME_PREFIX", GLOBAL_CONFIG.SHEET_NAME_PREFIX, "Tiền tố tab tháng (T -> tab T1, T2...)"],
         ["START_ROW", GLOBAL_CONFIG.START_ROW, "Hàng bắt đầu có dữ liệu nhân viên (thường là 2)"],
-        ["MIN_QUOTA", GLOBAL_CONFIG.MIN_QUOTA, "Số lượng email tối thiểu còn lại để script tiếp tục chạy"]
+
+        ["--- EMAIL ---", "", ""],
+        ["EMAIL_SUBJECT_PREFIX", GLOBAL_CONFIG.EMAIL_SUBJECT_PREFIX, "Tiền tố tiêu đề email gửi đi"],
+        ["PDF_FILE_NAME_PREFIX", GLOBAL_CONFIG.PDF_FILE_NAME_PREFIX, "Tiền tố tên file PDF"],
+        ["ATTACH_PDF_TO_EMAIL", GLOBAL_CONFIG.ATTACH_PDF_TO_EMAIL, "true = đính kèm PDF vào email"],
+        ["MIN_QUOTA", GLOBAL_CONFIG.MIN_QUOTA, "Số email tối thiểu còn lại để tiếp tục chạy"],
+
+        ["--- LƯU TRỮ DRIVE ---", "", ""],
+        ["SAVE_TO_DRIVE", GLOBAL_CONFIG.SAVE_TO_DRIVE, "true = lưu mỗi phiếu vào Drive theo Năm/Tháng"],
+        ["DRIVE_ROOT_FOLDER_NAME", GLOBAL_CONFIG.DRIVE_ROOT_FOLDER_NAME, "Tên thư mục gốc (tạo tự động ở My Drive)"],
+        ["DRIVE_ROOT_FOLDER_ID", GLOBAL_CONFIG.DRIVE_ROOT_FOLDER_ID, "(Tùy chọn) ID thư mục có sẵn — điền thì ưu tiên dùng"],
+
+        ["--- BẢO MẬT & NHẬT KÝ ---", "", ""],
+        ["SECURE_SHARE", GLOBAL_CONFIG.SECURE_SHARE, "true = file Drive chỉ chia sẻ cho đúng email NV + gửi link riêng (thay cho password PDF)"],
+        ["ENABLE_LOG", GLOBAL_CONFIG.ENABLE_LOG, "true = ghi lịch sử gửi vào tab LOG"],
+
+        ["--- VỊ TRÍ CỘT (chỉ sửa khi bảng lương khác mẫu) ---", "", ""],
+        ["MAP.HOTEN", GLOBAL_CONFIG.MAP.HOTEN, "Cột chứa Họ tên nhân viên"],
+        ["MAP.EMAIL", GLOBAL_CONFIG.MAP.EMAIL, "Cột chứa Email nhận phiếu"],
+        ["MAP.TONGLUONG", GLOBAL_CONFIG.MAP.TONGLUONG, "Cột Tổng thu nhập"],
+        ["MAP.THUCLINH", GLOBAL_CONFIG.MAP.THUCLINH, "Cột Thực lĩnh"],
+        ["MAP.LUONGCK", GLOBAL_CONFIG.MAP.LUONGCK, "Cột Lương chuyển khoản"],
+        ["MAP.SENT_STATUS", GLOBAL_CONFIG.MAP.SENT_STATUS, "Cột ghi trạng thái đã gửi (script tự ghi)"]
     ];
 
-    sheet.getRange(2, 1, configData.length, 3).setValues(configData);
+    sheet.getRange(2, 1, rows.length, 3).setValues(rows);
 
-    // Định dạng
-    sheet.setColumnWidth(1, 200);
+    // Định dạng các dòng tiêu đề nhóm "--- ... ---"
+    for (let i = 0; i < rows.length; i++) {
+        if (String(rows[i][0]).startsWith("---")) {
+            sheet.getRange(i + 2, 1, 1, 3).merge().setFontWeight("bold").setBackground("#e6e6e6").setFontStyle("italic");
+        } else {
+            sheet.getRange(i + 2, 2).setBackground("#fff2cc"); // ô giá trị màu vàng
+        }
+    }
+
+    sheet.setColumnWidth(1, 230);
     sheet.setColumnWidth(2, 300);
-    sheet.setColumnWidth(3, 400);
-    sheet.getRange(2, 2, configData.length, 1).setBackground("#fff2cc"); // Tô màu vàng cột giá trị để dễ nhận diện
-    sheet.getRange(1, 1, configData.length + 1, 3).setBorder(true, true, true, true, true, true, "#cccccc", SpreadsheetApp.BorderStyle.SOLID);
+    sheet.setColumnWidth(3, 430);
+    sheet.getRange(1, 1, rows.length + 1, 3).setBorder(true, true, true, true, true, true, "#cccccc", SpreadsheetApp.BorderStyle.SOLID);
+    sheet.setFrozenRows(1);
 
-    SpreadsheetApp.getUi().alert("Thành công", `Đã tạo xong tab "${sheetName}". Bạn chỉ cần thay đổi giá trị tại cột B (màu vàng) để script tự động áp dụng.`, SpreadsheetApp.getUi().ButtonSet.OK);
+    SpreadsheetApp.getUi().alert("Thành công",
+        `Đã tạo xong tab "${sheetName}". Chỉ cần sửa GIÁ TRỊ ở cột B (ô màu vàng).\n\n` +
+        `Lưu ý: GAS không đặt được mật khẩu PDF — dùng SECURE_SHARE=true để chia sẻ riêng tư qua Drive.`,
+        SpreadsheetApp.getUi().ButtonSet.OK);
 }
