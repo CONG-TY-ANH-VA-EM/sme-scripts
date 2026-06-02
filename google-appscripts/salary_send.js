@@ -39,6 +39,7 @@ const GLOBAL_CONFIG = {
     SENDER_ADDRESS: "Tòa nhà Alpha, số 123 Đường Beta, Quận Gamma, Hà Nội",
     SENDER_HOTLINE: "1900 xxxx",
     CONTACT_EMAIL: "hr@sme-solutions.vn",
+    LOGO_URL: "https://raw.githubusercontent.com/CONG-TY-ANH-VA-EM/sme-scripts/main/assets/logo-ane-white.png", // logo header phiếu (URL ảnh tải được; đổi thành logo công ty bạn)
 
     // 4. Mapping cột (dùng làm tag {{HOTEN}}, {{VITRI}}...). Đổi qua CONFIG bằng key "MAP.HOTEN", "MAP.EMAIL"...
     MAP: {
@@ -661,7 +662,8 @@ function onOpen() {
 
 function createSampleTemplate() {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheetName = GLOBAL_CONFIG.TEMPLATE_SHEET_NAME;
+    const settings = getSettings();
+    const sheetName = settings.TEMPLATE_SHEET_NAME;
     let sheet = ss.getSheetByName(sheetName);
 
     if (sheet) {
@@ -674,65 +676,118 @@ function createSampleTemplate() {
     sheet = ss.insertSheet(sheetName);
     sheet.setHideGridlines(true);
 
-    sheet.setColumnWidth(1, 300);
-    sheet.setColumnWidth(2, 200);
-    sheet.setColumnWidth(3, 200);
+    // ── Bảng màu thương hiệu ANH & EM ─────────────────────────────────────
+    const C = {
+        INDIGO: "#415097", INK: "#242d56", INK_SOFT: "#2a304e", TINT: "#d0d4e7",
+        TITLE: "#ebedf5", LINE: "#e2e5ef", MUTED: "#6c769e", WHITE: "#ffffff"
+    };
+    const SOLID = SpreadsheetApp.BorderStyle.SOLID;
 
-    sheet.getRange("A1:C100").setVerticalAlignment("middle");
-    sheet.setRowHeights(1, 100, 28);
+    sheet.setColumnWidth(1, 290);
+    sheet.setColumnWidth(2, 205);
+    sheet.setColumnWidth(3, 205);
+    sheet.getRange("A1:C35").setVerticalAlignment("middle").setFontFamily("Inter");
 
-    sheet.setRowHeight(1, 35);
-    sheet.getRange("A1:C1").merge().setValue("{{SENDER_NAME}}").setFontWeight("bold").setFontSize(14).setHorizontalAlignment("center");
-    sheet.getRange("A2:C2").merge().setValue("{{SENDER_ADDRESS}}").setFontSize(9).setHorizontalAlignment("center");
-    sheet.getRange("A3:C3").merge().setValue("Hotline: {{SENDER_HOTLINE}} | Email: {{CONTACT_EMAIL}}").setFontSize(9).setHorizontalAlignment("center");
+    // Helper: hàng nhãn → giá trị (căn trái = info, căn phải = money)
+    const labelValue = (r, label, value, align) => {
+        sheet.getRange(r, 1).setValue(label).setFontColor(C.INK_SOFT).setFontSize(10);
+        sheet.getRange(r, 2, 1, 2).merge().setValue(value).setFontColor(C.INK).setFontSize(10).setHorizontalAlignment(align);
+        sheet.setRowHeight(r, 24);
+    };
+    const sectionBand = (r, text) => {
+        sheet.getRange(r, 1, 1, 3).merge().setBackground(C.INDIGO);
+        sheet.getRange(r, 1).setValue(text).setFontColor(C.WHITE).setFontWeight("bold").setFontSize(10).setFontFamily("Figtree");
+        sheet.setRowHeight(r, 24);
+    };
+    const totalRow = (r, label, value) => {
+        sheet.getRange(r, 1, 1, 3).setBackground(C.TINT);
+        sheet.getRange(r, 1).setValue(label).setFontColor(C.INK).setFontWeight("bold").setFontSize(11).setFontFamily("Figtree");
+        sheet.getRange(r, 2, 1, 2).merge().setValue(value).setFontColor(C.INK).setFontWeight("bold").setFontSize(11).setHorizontalAlignment("right");
+        sheet.setRowHeight(r, 24);
+    };
 
-    sheet.setRowHeight(5, 40);
-    sheet.getRange("A5:C5").merge().setValue("PHIẾU LƯƠNG {{THANGNAM}}").setFontWeight("bold").setFontSize(16).setHorizontalAlignment("center").setBackground("#f0f0f0");
+    // ── Header band (logo + thông tin công ty) trên nền indigo ────────────
+    sheet.getRange("A1:C3").setBackground(C.INDIGO);
+    sheet.getRange("A1:A3").merge();
+    sheet.getRange("A1").setValue("ANH & EM").setFontColor(C.WHITE).setFontWeight("bold").setFontSize(14).setFontFamily("Figtree").setHorizontalAlignment("center"); // fallback nếu không tải được logo
+    sheet.getRange("B1:C1").merge().setValue("{{SENDER_NAME}}").setFontColor(C.WHITE).setFontWeight("bold").setFontSize(13).setFontFamily("Figtree");
+    sheet.getRange("B2:C2").merge().setValue("{{SENDER_ADDRESS}}").setFontColor(C.WHITE).setFontSize(9);
+    sheet.getRange("B3:C3").merge().setValue("Hotline: {{SENDER_HOTLINE}}  ·  {{CONTACT_EMAIL}}").setFontColor(C.WHITE).setFontSize(9);
+    sheet.setRowHeights(1, 3, 26);
+    // Nhúng logo (bytes) — render chắc chắn trong PDF, không vướng chặn fetch URL ngoài
+    try {
+        if (settings.LOGO_URL) {
+            const blob = UrlFetchApp.fetch(settings.LOGO_URL).getBlob();
+            sheet.insertImage(blob, 1, 1, 45, 8).setWidth(200).setHeight(64);
+        }
+    } catch (e) {
+        console.warn("Không tải được logo (" + settings.LOGO_URL + "): " + e.message);
+    }
 
-    sheet.getRange("A7").setValue("THÔNG TIN NHÂN VIÊN").setFontWeight("bold").setBackground("#e0e0e0");
-    sheet.getRange("A8").setValue("Họ và tên:"); sheet.getRange("B8:C8").merge().setValue("{{HOTEN}}").setFontWeight("bold");
-    sheet.getRange("A9").setValue("Vị trí:"); sheet.getRange("B9:C9").merge().setValue("{{VITRI}}");
-    sheet.getRange("A10").setValue("Tài khoản nhận:"); sheet.getRange("B10:C10").merge().setValue("{{STK}} ({{NGANHANG}})");
+    // ── Tiêu đề phiếu ─────────────────────────────────────────────────────
+    sheet.setRowHeight(5, 38);
+    sheet.getRange("A5:C5").merge().setValue("PHIẾU LƯƠNG  ·  {{THANGNAM}}")
+        .setBackground(C.TITLE).setFontColor(C.INK).setFontWeight("bold").setFontSize(16).setFontFamily("Figtree").setHorizontalAlignment("center");
 
-    sheet.getRange("A12").setValue("CHI TIẾT CÔNG XÁ").setFontWeight("bold").setBackground("#e0e0e0");
-    sheet.getRange("A13").setValue("Công chuẩn / Thực tế:"); sheet.getRange("B13").setValue("{{NGAYCONGCHUAN}}"); sheet.getRange("C13").setValue("{{TONGGIOTT}} giờ");
-    sheet.getRange("A14").setValue("Tăng ca (150%/200%/300%):"); sheet.getRange("B14:C14").merge().setValue("{{GIO150}} / {{GIO200}} / {{GIO300}}");
-    sheet.getRange("A15").setValue("Nghỉ (Ro/N/P/L):"); sheet.getRange("B15:C15").merge().setValue("{{RO}} / {{N}} / {{P}} / {{L}}");
+    // ── Thông tin nhân viên ───────────────────────────────────────────────
+    sectionBand(7, "THÔNG TIN NHÂN VIÊN");
+    labelValue(8, "Họ và tên", "{{HOTEN}}", "left");
+    sheet.getRange(8, 2).setFontWeight("bold");
+    labelValue(9, "Vị trí", "{{VITRI}}", "left");
+    labelValue(10, "Tài khoản nhận", "{{STK}} ({{NGANHANG}})", "left");
+    labelValue(11, "Email", "{{EMAIL}}", "left");
 
-    sheet.getRange("A17").setValue("CHI TIẾT THU NHẬP").setFontWeight("bold").setBackground("#e0e0e0");
-    const incomeTags = [
-        ["Lương cơ bản (HĐ)", "{{L_COBAN}}"],
-        ["Phụ cấp (Ăn/ĐT/NL)", "{{PC_ANTRUA}} / {{PC_DIENTHOAI}} / {{PC_DILAI}}"],
+    // ── Chi tiết công xá ──────────────────────────────────────────────────
+    sectionBand(13, "CHI TIẾT CÔNG XÁ");
+    sheet.getRange(14, 1).setValue("Công chuẩn / thực tế").setFontColor(C.INK_SOFT).setFontSize(10);
+    sheet.getRange(14, 2).setValue("{{NGAYCONGCHUAN}}").setFontColor(C.INK).setFontSize(10);
+    sheet.getRange(14, 3).setValue("{{TONGGIOTT}} giờ").setFontColor(C.INK).setFontSize(10);
+    sheet.setRowHeight(14, 24);
+    labelValue(15, "Tăng ca (150% / 200% / 300%)", "{{GIO150}} / {{GIO200}} / {{GIO300}}", "left");
+    labelValue(16, "Nghỉ (Ro / N / P / L)", "{{RO}} / {{N}} / {{P}} / {{L}}", "left");
+
+    // ── Chi tiết thu nhập ─────────────────────────────────────────────────
+    sectionBand(18, "CHI TIẾT THU NHẬP");
+    const income = [
+        ["Lương cơ bản", "{{L_COBAN}}"],
+        ["Phụ cấp (ăn / điện thoại / đi lại)", "{{PC_ANTRUA}} / {{PC_DIENTHOAI}} / {{PC_DILAI}}"],
         ["Lương ngày công thực tế", "{{L_NGAYCONG}}"],
-        ["Lương OT", "{{L_OT}}"],
-        ["Lương KPI / Hiệu quả", "{{L_KPI}}"],
-        ["Thưởng / Phúc lợi khác", "{{THUONG}}"],
-        ["TỔNG THU NHẬP", "{{TONGLUONG}}"]
+        ["Lương tăng ca (OT)", "{{L_OT}}"],
+        ["Lương KPI / hiệu quả", "{{L_KPI}}"],
+        ["Thưởng / phúc lợi", "{{THUONG}}"]
     ];
-    let row = 18;
-    incomeTags.forEach(pair => {
-        sheet.getRange(row, 1).setValue(pair[0]);
-        sheet.getRange(row, 2, 1, 2).merge().setValue(pair[1]).setHorizontalAlignment("right");
-        if (pair[0].includes("TỔNG")) sheet.getRange(row, 1, 1, 3).setFontWeight("bold").setBackground("#fff2cc");
-        row++;
-    });
+    income.forEach((pair, i) => labelValue(19 + i, pair[0], pair[1], "right"));
+    totalRow(25, "TỔNG THU NHẬP", "{{TONGLUONG}}");
 
-    row++;
-    sheet.getRange(row, 1).setValue("GIẢM TRỪ & KHẤU TRỪ").setFontWeight("bold").setBackground("#e0e0e0"); row++;
-    sheet.getRange(row, 1).setValue("BHXH / Thuế TNCN:"); sheet.getRange(row, 2, 1, 2).merge().setValue("{{BHXH}} / {{THUETNCN}}").setHorizontalAlignment("right"); row++;
-    sheet.getRange(row, 1).setValue("THỰC LĨNH").setFontWeight("bold"); sheet.getRange(row, 2, 1, 2).merge().setValue("{{THUCLINH}}").setFontWeight("bold").setHorizontalAlignment("right"); row++;
+    // ── Khấu trừ & thực lĩnh ──────────────────────────────────────────────
+    sectionBand(27, "KHẤU TRỪ & THỰC LĨNH");
+    labelValue(28, "BHXH / thuế TNCN", "{{BHXH}} / {{THUETNCN}}", "right");
+    labelValue(29, "Giảm trừ gia cảnh", "{{GIAMTRU}}", "right");
+    totalRow(30, "THỰC LĨNH", "{{THUCLINH}}");
 
-    row++;
-    sheet.getRange(row, 1).setValue("THANH TOÁN CUỐI CÙNG").setFontWeight("bold").setBackground("#d9ead3"); row++;
-    sheet.getRange(row, 1).setValue("Tạm ứng / Đã quyết toán:"); sheet.getRange(row, 2, 1, 2).merge().setValue("{{TAMUNG}} / {{DANHAN}}").setHorizontalAlignment("right"); row++;
-    sheet.setRowHeight(row, 35);
-    sheet.getRange(row, 1).setValue("SỐ TIỀN CHUYỂN KHOẢN").setFontWeight("bold").setFontSize(12);
-    sheet.getRange(row, 2, 1, 2).merge().setValue("{{LUONGCK}} VND").setFontWeight("bold").setFontSize(12).setHorizontalAlignment("right").setBackground("#fff2cc");
+    // ── Thanh toán ────────────────────────────────────────────────────────
+    labelValue(32, "Tạm ứng / đã quyết toán", "{{TAMUNG}} / {{DANHAN}}", "right");
+    sheet.getRange(33, 1, 1, 3).setBackground(C.INDIGO);
+    sheet.getRange(33, 1).setValue("SỐ TIỀN CHUYỂN KHOẢN").setFontColor(C.WHITE).setFontWeight("bold").setFontSize(12).setFontFamily("Figtree");
+    sheet.getRange(33, 2, 1, 2).merge().setValue("{{LUONGCK}} VND").setFontColor(C.WHITE).setFontWeight("bold").setFontSize(15).setHorizontalAlignment("right");
+    sheet.setRowHeight(33, 34);
 
-    sheet.getRange("A7:C" + row).setBorder(true, true, true, true, true, true, "#cccccc", SpreadsheetApp.BorderStyle.SOLID);
-    sheet.getRange("A1:C" + row).setFontFamily("Roboto");
+    // ── Footer ────────────────────────────────────────────────────────────
+    sheet.getRange("A35:C35").merge().setValue("Mọi thắc mắc vui lòng liên hệ {{CONTACT_EMAIL}} trong vòng 3 ngày làm việc.")
+        .setFontColor(C.MUTED).setFontStyle("italic").setFontSize(8).setHorizontalAlignment("center");
+    sheet.setRowHeight(35, 22);
 
-    SpreadsheetApp.getUi().alert("Thành công", `Đã tạo xong sheet "${sheetName}". Bạn có thể tùy chỉnh thêm font chữ hoặc logo nếu muốn.`, SpreadsheetApp.getUi().ButtonSet.OK);
+    // Hàng cách (spacer)
+    [4, 6, 12, 17, 26, 31, 34].forEach(r => sheet.setRowHeight(r, 8));
+
+    // Đường kẻ ngang mảnh giữa các hàng dữ liệu
+    [["A8:C11"], ["A14:C16"], ["A19:C25"], ["A28:C30"]].forEach(([rg]) =>
+        sheet.getRange(rg).setBorder(null, null, null, null, null, true, C.LINE, SOLID));
+
+    SpreadsheetApp.getUi().alert("Thành công",
+        `Đã tạo xong mẫu "${sheetName}" theo nhận diện ANH & EM.\n` +
+        `Logo lấy từ LOGO_URL trong CONFIG (đổi được). Bạn có thể tùy chỉnh thêm màu/font nếu muốn.`,
+        SpreadsheetApp.getUi().ButtonSet.OK);
 }
 
 // =============================================================================
@@ -762,6 +817,7 @@ function createConfigSheet() {
         ["SENDER_ADDRESS", GLOBAL_CONFIG.SENDER_ADDRESS, "Địa chỉ công ty"],
         ["SENDER_HOTLINE", GLOBAL_CONFIG.SENDER_HOTLINE, "Hotline hỗ trợ"],
         ["CONTACT_EMAIL", GLOBAL_CONFIG.CONTACT_EMAIL, "Email liên hệ hiển thị cho nhân viên (KHÔNG phải email gửi đi)"],
+        ["LOGO_URL", GLOBAL_CONFIG.LOGO_URL, "URL ảnh logo hiển thị trên đầu phiếu (để trống = chỉ hiện tên công ty)"],
 
         ["--- CẤU TRÚC DỮ LIỆU ---", "", ""],
         ["SHEET_NAME_PREFIX", GLOBAL_CONFIG.SHEET_NAME_PREFIX, "Tiền tố tab tháng (T -> tab T1, T2...)"],

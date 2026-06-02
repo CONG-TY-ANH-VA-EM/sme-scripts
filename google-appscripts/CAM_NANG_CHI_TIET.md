@@ -243,6 +243,7 @@ Trong mẫu có những chữ nằm trong **hai ngoặc nhọn** như `{{HOTEN}}
 | `SENDER_ADDRESS` | Địa chỉ | Số 1 Đường X, Quận Y, Hà Nội |
 | `SENDER_HOTLINE` | Số điện thoại hỗ trợ | 1900 1234 |
 | `CONTACT_EMAIL` | Email **để nhân viên liên hệ** (KHÔNG phải email gửi đi) | hr@abc.com |
+| `LOGO_URL` | URL ảnh logo hiện trên đầu phiếu (để trống = chỉ hiện tên công ty) | `https://.../logo.png` |
 
 **Nhóm: Cấu trúc dữ liệu**
 | Tham số | Điền gì | Mặc định |
