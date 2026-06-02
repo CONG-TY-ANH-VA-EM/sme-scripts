@@ -7,15 +7,18 @@ Dự án này chứa các script hỗ trợ quản lý doanh nghiệp nhỏ và 
 ### 1. Hệ thống Gửi Bảng Lương (google-appscripts)
 Script tự động hóa quy trình gửi phiếu lương hàng tháng tới từng nhân viên qua email dưới dạng file PDF được định dạng chuyên nghiệp.
 
-- **File**: [salary_send.js](file:///opt/workspace/sme-scripts/google-appscripts/salary_send.js)
+- **File**: [salary_send.js](./google-appscripts/salary_send.js)
 - **Tài liệu**:
-  - [Hướng dẫn sử dụng chi tiết](file:///opt/workspace/sme-scripts/google-appscripts/USER_GUIDE.md)
-  - [Câu hỏi thường gặp & Xử lý sự cố (FAQ)](file:///opt/workspace/sme-scripts/google-appscripts/FAQ.md)
-- **Tính năng nổi bật**:
-  - Tự động nhận diện danh sách nhân viên linh hoạt.
-  - Tối ưu hiệu suất tạo PDF hàng loạt.
-  - Sửa lỗi lệch tháng tự động theo thời gian thực.
-  - **Dễ dàng cấu hình**: Thay đổi thông số qua tab `CONFIG` ngay trên Sheet mà không cần mở code.
+  - [Hướng dẫn sử dụng chi tiết](./google-appscripts/USER_GUIDE.md)
+  - [Câu hỏi thường gặp & Xử lý sự cố (FAQ)](./google-appscripts/FAQ.md)
+- **Tính năng nổi bật** (v2.0):
+  - Gửi phiếu lương PDF hàng loạt qua email, tự động resume khi chạm giới hạn 6 phút.
+  - **Lưu trữ Drive**: mỗi phiếu lưu vào thư mục theo `Năm / Tháng`, đặt tên theo nhân viên.
+  - **Gửi thử** một phiếu về email người vận hành trước khi gửi thật.
+  - **Chọn tháng** thủ công (gửi lương tháng cũ trong khi đang ở tháng mới).
+  - **Nhật ký**: ghi lịch sử gửi vào tab `LOG` (thời gian, người nhận, trạng thái, link Drive).
+  - **Bảo mật**: `SECURE_SHARE` chia sẻ file Drive riêng cho đúng email nhân viên (thay cho mật khẩu PDF — Apps Script không hỗ trợ mã hoá PDF).
+  - **Dễ dàng cấu hình**: đổi thông tin công ty, vị trí cột (`MAP.*`), tùy chọn Drive/bảo mật qua tab `CONFIG` mà không cần mở code.
 
 ## Cách sử dụng nhanh
 1. Mở Sheet bảng lương.

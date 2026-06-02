@@ -10,7 +10,7 @@ Tài liệu này giúp bạn tự giải quyết các vấn đề nhanh chóng k
 
 ### 2. Lỗi: "Không tìm thấy sheet dữ liệu T1"
 - **Nguyên nhân**: Tên tab tháng của bạn không khớp với cấu hình.
-- **Cách khắc phục**: Kiểm tra xem tab chứa lương tháng 1 của bạn có tên chính xác là `T1` hay không (không có dấu cách, không có chữ "Tháng"). Nếu bạn muốn đặt là `Tháng 1`, hãy sửa biến `SHEET_NAME_PREFIX` trong code từ `"T"` thành `"Tháng "`.
+- **Cách khắc phục**: Kiểm tra xem tab chứa lương tháng 1 của bạn có tên chính xác là `T1` hay không (không có dấu cách, không có chữ "Tháng"). Nếu bạn muốn đặt là `Tháng 1`, hãy mở tab `CONFIG` và đổi giá trị `SHEET_NAME_PREFIX` từ `T` thành `Tháng ` (có dấu cách cuối).
 
 ### 3. Tại sao trong phiếu PDF hiện thẻ {{HOTEN}} mà không hiện tên người?
 - **Nguyên nhân**: Bạn đã gõ sai thẻ Tag trong tab `TEMPLATE`.
@@ -21,11 +21,11 @@ Tài liệu này giúp bạn tự giải quyết các vấn đề nhanh chóng k
 - **Cách khắc phục**: Bạn **không cần làm gì cả**. Script đã tự hẹn giờ để 1 phút sau tự chạy tiếp. Bạn sẽ nhận được email báo cáo tổng kết khi mọi thứ hoàn tất.
 
 ### 5. Tôi thêm một cột "Thưởng chuyên cần" vào bảng lương thì làm sao để hiện trong PDF?
-- **Nguyên nhân**: Script chưa biết cột mới đó nằm ở đâu.
-- **Cách khắc phục**: 
-    1. Mở phần code, tìm đến mục `MAP`.
-    2. Thêm một dòng mới, ví dụ: `CHUYENCAN: "AP"` (trong đó AP là tên cột trong Excel).
-    3. Trong tab `TEMPLATE`, hãy nhập thẻ `{{CHUYENCAN}}` vào vị trí bạn muốn.
+- **Cách làm (không cần mở code)**: 
+    1. Mở tab `CONFIG`. Ở cột A (THAM SỐ), thêm một dòng mới ghi `MAP.CHUYENCAN`; cột B (GIÁ TRỊ) ghi tên cột Excel, ví dụ `AP`.
+    2. Trong tab `TEMPLATE`, nhập thẻ `{{CHUYENCAN}}` vào vị trí bạn muốn.
+    3. Gửi lại — phiếu sẽ tự điền dữ liệu cột đó.
+- **Lưu ý về định dạng tiền**: cột mới sẽ hiển thị nguyên văn. Nếu muốn nó được định dạng kiểu tiền tệ (vd `1.000.000`), hãy đặt tên bắt đầu bằng `L_` hoặc `PC_` (ví dụ `MAP.L_CHUYENCAN` + thẻ `{{L_CHUYENCAN}}`).
 
 ### 6. Script báo "Lỗi Quota" hoặc "Hạn mức email"?
 - **Nguyên nhân**: Bạn đã dùng hết số lượng email mà Google cho phép gửi trong 1 ngày (100 với Gmail thường).
@@ -42,8 +42,29 @@ Tài liệu này giúp bạn tự giải quyết các vấn đề nhanh chóng k
     2. Cập nhật các giá trị tại cột B (màu vàng).
 - **Lời khuyên**: Nếu bạn không rành về code, hãy sử dụng tab **CONFIG** để thay đổi thông tin công ty hoặc tên sheet tháng. Việc này giúp bạn tránh lỡ tay làm hỏng mã nguồn.
 
-### 9. Tôi muốn đổi tên các cột (Vd: từ AO sang AP) thì làm sao?
-- Hiện tại, tính năng đổi Mapping cột qua tab `CONFIG` chưa được hỗ trợ để đảm bảo tính ổn định. Bạn vẫn cần sửa trong phần `MAP` của `GLOBAL_CONFIG` trong trình soạn thảo code (Apps Script).
+### 9. Tôi muốn đổi vị trí các cột (Vd: cột trạng thái từ AO sang AP) thì làm sao?
+- **Đã hỗ trợ qua tab `CONFIG`** (không cần sửa code). Trong tab `CONFIG`, tìm (hoặc thêm) dòng tương ứng và đổi giá trị ở cột B:
+    - Đổi cột trạng thái: `MAP.SENT_STATUS` → `AP`
+    - Đổi cột email: `MAP.EMAIL` → cột mới
+    - Đổi cột họ tên: `MAP.HOTEN`, lương chuyển khoản: `MAP.LUONGCK`, v.v.
+- Nguyên tắc: bất kỳ dòng nào bắt đầu bằng `MAP.` trong CONFIG sẽ ghi đè vị trí cột tương ứng.
+
+### 10. "Gửi THỬ" khác gì với gửi thật?
+- **Gửi THỬ** (menu **SME Tools** > **Gửi THỬ về email tôi...**) chỉ tạo một phiếu và gửi về email bạn chọn (mặc định email của bạn) để xem trước. Nó **không** đánh dấu "Thành công", **không** lưu Drive, **không** gửi cho nhân viên. Dùng thoải mái để kiểm tra mẫu trước khi gửi thật.
+
+### 11. Phiếu lương được lưu ở đâu trên Drive?
+- Khi `SAVE_TO_DRIVE = true`, mỗi phiếu lưu vào: `[Thư mục gốc] / Năm YYYY / Tháng MM-YYYY / PhieuLuong_TenNV_...pdf`.
+- Thư mục gốc tạo tự động trong **My Drive của bạn** (mặc định chỉ mình bạn xem). ⚠️ **Đừng chia sẻ thư mục này cho người ngoài** — bên trong là lương toàn bộ nhân viên.
+- Muốn dùng thư mục có sẵn? Điền ID thư mục vào `DRIVE_ROOT_FOLDER_ID` trong CONFIG.
+
+### 12. Làm sao đặt mật khẩu cho file PDF phiếu lương?
+- Google Apps Script **không** hỗ trợ đặt mật khẩu / mã hoá PDF. Thay vào đó, bật `SECURE_SHARE = true` trong CONFIG: file PDF trên Drive sẽ **chỉ chia sẻ riêng cho đúng email nhân viên**, và email kèm link riêng tư. Đây là cách bảo mật thay thế. Nếu việc chia sẻ riêng thất bại (vd domain chặn), hệ thống tự đính kèm PDF để nhân viên vẫn nhận được phiếu.
+
+### 13. Tôi muốn xem lại lịch sử đã gửi cho ai, lúc nào?
+- Khi `ENABLE_LOG = true`, công cụ tạo tab `LOG` ghi lại từng lần gửi: thời gian, kỳ lương, hàng, họ tên, email, trạng thái và link Drive. Mở tab này để đối chiếu hoặc kiểm toán.
+
+### 14. Tôi gửi lương tháng trước, nhưng máy lại nhận tháng hiện tại?
+- Dùng **SME Tools** > **Gửi Phiếu Lương (Chọn Tháng...)** và nhập tháng cần gửi (vd `5` hoặc `5/2025`). Tùy chọn "Tháng Hiện Tại" luôn lấy theo lịch của ngày hôm nay.
 
 ---
 **Bạn vẫn gặp khó khăn?** Hãy liên hệ bộ phận kỹ thuật hoặc để lại Issue trên Github nhé!
