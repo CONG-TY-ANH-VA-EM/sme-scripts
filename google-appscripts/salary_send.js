@@ -403,7 +403,7 @@ function renderEmployeePdf(templateSheet, tempSS, row, settings, payrollMonthYea
         "{{CONTACT_EMAIL}}": settings.CONTACT_EMAIL
     };
 
-    const MONEY_KEYS = ["THUONG", "TRU_CHIU_THUE", "TRU_KG_CHIU_THUE", "TONGLUONG", "BHXH",
+    const MONEY_KEYS = ["THUONG", "TRU_CHIU_THUE", "TRU_KG_CHIU_THUE", "TONGLUONG", "GIAMTRU", "BHXH",
         "THUETNCN", "THUCLINH", "PHAT", "TAMUNG", "DANHAN", "LUONGCK"];
     const moneyFmt = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 });
 
