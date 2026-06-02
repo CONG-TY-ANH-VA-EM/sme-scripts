@@ -1,5 +1,7 @@
 # Mẫu Phiếu Lương (tham chiếu thẻ chuẩn) — SME SOLUTIONS 2025
 
+> 📄 **Xem mẫu trực tiếp (Google Sheets):** [Mở xem](https://docs.google.com/spreadsheets/d/13IGNBDButCrmq3_459AF_pe2ATI-w2x5Vc634phaslE/edit) · [Tạo bản sao để dùng](https://docs.google.com/spreadsheets/d/13IGNBDButCrmq3_459AF_pe2ATI-w2x5Vc634phaslE/copy) — tab `TEMPLATE` trong file demo đã dựng sẵn theo nhận diện ANH & EM.
+
 > ⚠️ **QUAN TRỌNG:** Đây là các thẻ `{{...}}` mà công cụ **thực sự nhận diện** (VIẾT HOA, theo `MAP` trong code). Bản cũ từng dùng thẻ kiểu `{{HoTen}}`, `{{TongLuong24}}` — **những thẻ đó KHÔNG hoạt động** và sẽ làm phiếu bị trống. Hãy dùng đúng các thẻ dưới đây. Bảng tra đầy đủ 41 cột: xem [CAM_NANG_CHI_TIET.md › Phần M](../google-appscripts/CAM_NANG_CHI_TIET.md#phần-m--bảng-tra-thẻ).
 
 ---

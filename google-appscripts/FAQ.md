@@ -2,6 +2,8 @@
 
 Tài liệu này giúp bạn tự giải quyết các vấn đề nhanh chóng khi sử dụng công cụ gửi phiếu lương tự động.
 
+> 📄 **File mẫu dùng thử ngay:** [Mở xem](https://docs.google.com/spreadsheets/d/13IGNBDButCrmq3_459AF_pe2ATI-w2x5Vc634phaslE/edit) · [Tạo bản sao để dùng](https://docs.google.com/spreadsheets/d/13IGNBDButCrmq3_459AF_pe2ATI-w2x5Vc634phaslE/copy) — gồm sẵn tab `T1` (dữ liệu mẫu), `CONFIG`, `TEMPLATE`.
+
 ---
 
 ### 1. Tại sao tôi bấm nút "Gửi" mà không có chuyện gì xảy ra?
