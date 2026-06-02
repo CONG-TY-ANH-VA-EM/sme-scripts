@@ -8,8 +8,11 @@ Dự án này chứa các script hỗ trợ quản lý doanh nghiệp nhỏ và 
 Script tự động hóa quy trình gửi phiếu lương hàng tháng tới từng nhân viên qua email dưới dạng file PDF được định dạng chuyên nghiệp.
 
 - **File**: [salary_send.js](./google-appscripts/salary_send.js)
+- **📄 File mẫu dùng thử ngay (Google Sheets, public)**: [**Mở xem**](https://docs.google.com/spreadsheets/d/13IGNBDButCrmq3_459AF_pe2ATI-w2x5Vc634phaslE/edit) · [**Tạo bản sao để dùng**](https://docs.google.com/spreadsheets/d/13IGNBDButCrmq3_459AF_pe2ATI-w2x5Vc634phaslE/copy)
+  *(Gồm sẵn tab `T1` dữ liệu mẫu, `CONFIG`, `TEMPLATE` — dữ liệu giả định, bấm "Tạo bản sao" rồi dán code để chạy.)*
 - **Tài liệu**:
-  - [Hướng dẫn sử dụng chi tiết](./google-appscripts/USER_GUIDE.md)
+  - [📘 Cẩm nang chi tiết cho người không rành công nghệ](./google-appscripts/CAM_NANG_CHI_TIET.md)
+  - [Hướng dẫn sử dụng](./google-appscripts/USER_GUIDE.md)
   - [Câu hỏi thường gặp & Xử lý sự cố (FAQ)](./google-appscripts/FAQ.md)
 - **Tính năng nổi bật** (v2.0):
   - Gửi phiếu lương PDF hàng loạt qua email, tự động resume khi chạm giới hạn 6 phút.

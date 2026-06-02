@@ -34,6 +34,15 @@
 
 ---
 
+> ### 🚀 Muốn xem trước / dùng thử ngay?
+> Có sẵn một **file Google Sheets mẫu** (đã có tab `T1` dữ liệu, `CONFIG`, `TEMPLATE`):
+> - 👀 [**Mở xem**](https://docs.google.com/spreadsheets/d/13IGNBDButCrmq3_459AF_pe2ATI-w2x5Vc634phaslE/edit)
+> - 📥 [**Tạo bản sao để dùng**](https://docs.google.com/spreadsheets/d/13IGNBDButCrmq3_459AF_pe2ATI-w2x5Vc634phaslE/copy) ← bấm cái này để có file riêng của bạn
+>
+> Dữ liệu trong file là **giả định** — sau khi tạo bản sao, hãy thay bằng dữ liệu thật.
+
+---
+
 ## 1. Công cụ này làm được gì?
 
 Hãy hình dung mỗi tháng bạn phải:
@@ -170,6 +179,12 @@ Menu **SME Tools** gồm:
   - **Cột AO = Trạng thái gửi** — để **trống**, máy sẽ tự điền "Thành công" sau khi gửi.
 
 ### B3. Cách nhanh & chuẩn nhất: dùng file mẫu
+
+**Cách 1 (dễ nhất) — Tạo bản sao file Google Sheets mẫu:**
+1. Bấm [**Tạo bản sao file mẫu**](https://docs.google.com/spreadsheets/d/13IGNBDButCrmq3_459AF_pe2ATI-w2x5Vc634phaslE/copy) → file riêng của bạn hiện ra, đã có sẵn tab `T1`, `CONFIG`, `TEMPLATE`.
+2. Thay dữ liệu mẫu trong tab `T1` bằng dữ liệu thật (giữ nguyên thứ tự cột).
+
+**Cách 2 — Nhập từ file CSV:**
 1. Tải file mẫu: [**payroll_sample_2025.csv**](./payroll_sample_2025.csv).
 2. Trong Google Sheets: **Tệp (File)** → **Nhập (Import)** → **Tải lên (Upload)** → chọn file mẫu.
 3. Đổi tên tab thành `T1`, `T2`… theo tháng.

@@ -39,7 +39,8 @@ Sau khi dán mã, bạn cần cho phép Google chạy mã này trên tài khoả
 
 Để công cụ hoạt động đúng, bảng tính của bạn cần được sắp xếp theo đúng quy chuẩn.
 
-1.  Bạn nên sử dụng file mẫu để đảm bảo chính xác nhất: [payroll_sample_2025.csv](./payroll_sample_2025.csv).
+0.  **Nhanh nhất**: [tạo bản sao file Google Sheets mẫu](https://docs.google.com/spreadsheets/d/13IGNBDButCrmq3_459AF_pe2ATI-w2x5Vc634phaslE/copy) (đã có sẵn `T1`, `CONFIG`, `TEMPLATE`) rồi thay dữ liệu thật.
+1.  Hoặc dùng file CSV mẫu để đảm bảo chính xác: [payroll_sample_2025.csv](./payroll_sample_2025.csv).
 2.  Cách đưa file mẫu vào Google Sheets:
     - Vào **Tệp (File)** > **Nhập (Import)** > **Tải lên (Upload)** và chọn file CSV mẫu.
     - Đặt tên Sheet (tab) là `T1` (nếu là lương tháng 1), `T2` (lương tháng 2), v.v.
